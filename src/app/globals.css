@@ -1,26 +1,102 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* NERDS palette */
+  --color-nerds-bg: #080810;
+  --color-nerds-card: #111120;
+  --color-nerds-border: #1c1c2e;
+  --color-nerds-muted: #666680;
+  --color-nerds-text: #e8e8f0;
+
+  --color-orange: #ff6b35;
+  --color-orange-light: #ff8a5b;
+  --color-orange-dark: #e05520;
+
+  /* Semantic tokens (used by UI primitives) */
+  --color-background: #080810;
+  --color-foreground: #e8e8f0;
+
+  --color-card: #111120;
+  --color-card-foreground: #e8e8f0;
+
+  --color-popover: #111120;
+  --color-popover-foreground: #e8e8f0;
+
+  --color-primary: #ff6b35;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #1a1a2a;
+  --color-secondary-foreground: #b8b8d0;
+
+  --color-muted: #14142a;
+  --color-muted-foreground: #666680;
+
+  --color-accent: #1c1c2e;
+  --color-accent-foreground: #e8e8f0;
+
+  --color-destructive: #d14848;
+  --color-destructive-foreground: #ffffff;
+
+  --color-success: #2ec27e;
+  --color-warning: #f5a524;
+
+  --color-border: #1c1c2e;
+  --color-input: #1c1c2e;
+  --color-ring: #ff6b35;
+
+  --radius-sm: 0.5rem;
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-nerds-border);
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-nerds-muted);
+  }
+
+  input,
+  textarea,
+  select {
+    background-color: var(--color-nerds-card);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .nerds-card {
+    background-color: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+  }
+
+  .nerds-glow {
+    box-shadow: 0 0 0 1px rgba(255, 107, 53, 0.4),
+      0 0 24px -8px rgba(255, 107, 53, 0.5);
+  }
 }
