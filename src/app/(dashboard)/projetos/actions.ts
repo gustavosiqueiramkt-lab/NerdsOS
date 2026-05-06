@@ -23,6 +23,14 @@ const DEFAULT_FLOWS: { name: string; columns: string[] }[] = [
   },
 ]
 
+async function getAuthUser() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return { supabase, user }
+}
+
 export async function ensureDefaultFlows() {
   const supabase = await createClient()
   const { data: existing } = await supabase
@@ -54,7 +62,8 @@ export async function ensureDefaultFlows() {
 export async function createFlow(name: string) {
   const trimmed = name.trim()
   if (!trimmed) return { error: 'Nome obrigatório.' }
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { data: max } = await supabase
     .from('task_flows')
     .select('position')
@@ -75,7 +84,8 @@ export async function createFlow(name: string) {
 export async function renameFlow(id: string, name: string) {
   const trimmed = name.trim()
   if (!trimmed) return { error: 'Nome obrigatório.' }
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { error } = await supabase
     .from('task_flows')
     .update({ name: trimmed })
@@ -86,7 +96,8 @@ export async function renameFlow(id: string, name: string) {
 }
 
 export async function deleteFlow(id: string) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { error } = await supabase.from('task_flows').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/projetos')
@@ -98,7 +109,8 @@ export async function deleteFlow(id: string) {
 export async function createColumn(flowId: string, name: string) {
   const trimmed = name.trim()
   if (!trimmed) return { error: 'Nome obrigatório.' }
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { data: max } = await supabase
     .from('task_columns')
     .select('position')
@@ -120,7 +132,8 @@ export async function createColumn(flowId: string, name: string) {
 export async function renameColumn(id: string, name: string) {
   const trimmed = name.trim()
   if (!trimmed) return { error: 'Nome obrigatório.' }
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { error } = await supabase
     .from('task_columns')
     .update({ name: trimmed })
@@ -131,7 +144,8 @@ export async function renameColumn(id: string, name: string) {
 }
 
 export async function deleteColumn(id: string) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { error } = await supabase.from('task_columns').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/projetos')
@@ -153,7 +167,8 @@ export interface TaskInput {
 
 export async function createTask(input: TaskInput) {
   if (!input.title?.trim()) return { error: 'Título obrigatório.' }
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { data: max } = await supabase
     .from('flow_tasks')
     .select('position')
@@ -180,7 +195,8 @@ export async function createTask(input: TaskInput) {
 }
 
 export async function updateTask(id: string, patch: Partial<TaskInput>) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const cleaned: Record<string, unknown> = {}
   if (patch.title !== undefined) cleaned.title = patch.title.trim()
   if (patch.description !== undefined)
@@ -206,7 +222,8 @@ export async function moveTask(
   toColumnId: string,
   toPosition: number
 ) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { error } = await supabase
     .from('flow_tasks')
     .update({ column_id: toColumnId, position: toPosition })
@@ -217,7 +234,8 @@ export async function moveTask(
 }
 
 export async function deleteTask(id: string) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   const { error } = await supabase.from('flow_tasks').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/projetos')

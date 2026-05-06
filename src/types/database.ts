@@ -63,6 +63,7 @@ export type LeadTaskType =
   | 'call'
   | 'meeting'
   | 'email'
+  | 'note'
   | 'whatsapp'
   | 'outro'
 
@@ -81,6 +82,7 @@ export const LEAD_TASK_TYPE_LABEL: Record<LeadTaskType, string> = {
   meeting: 'Reunião',
   followup: 'Follow-up',
   email: 'E-mail',
+  note: 'Nota',
   whatsapp: 'WhatsApp',
   outro: 'Outro',
   task: 'Tarefa',
@@ -91,8 +93,9 @@ export const LEAD_TASK_TYPE_COLOR: Record<LeadTaskType, string> = {
   meeting: '#A78BFA',
   followup: '#F59E0B',
   email: '#60A5FA',
+  note: '#9CA3AF',
   whatsapp: '#22C55E',
-  outro: '#9CA3AF',
+  outro: '#6B7280',
   task: '#9CA3AF',
 }
 

@@ -9,8 +9,20 @@ import type {
   LeadTaskType,
 } from '@/types/database'
 
-export async function createLead(formData: FormData) {
+async function getAuthUser() {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return { supabase, user }
+}
+
+export async function createLead(formData: FormData) {
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const proposalRaw = Number(formData.get('proposal_value'))
+  const maturityRaw = Number(formData.get('maturity_score'))
 
   const payload = {
     name: String(formData.get('name') || '').trim(),
@@ -20,20 +32,20 @@ export async function createLead(formData: FormData) {
     email: String(formData.get('email') || '').trim() || null,
     stage: String(formData.get('stage') || 'sem_contato') as LeadStage,
     source: String(formData.get('source') || 'manual') as LeadSource,
-    proposal_value: formData.get('proposal_value')
-      ? Number(formData.get('proposal_value'))
-      : null,
-    maturity_score: formData.get('maturity_score')
-      ? Number(formData.get('maturity_score'))
-      : null,
+    proposal_value:
+      formData.get('proposal_value') && !Number.isNaN(proposalRaw) && proposalRaw >= 0
+        ? proposalRaw
+        : null,
+    maturity_score:
+      formData.get('maturity_score') && !Number.isNaN(maturityRaw)
+        ? Math.min(100, Math.max(0, maturityRaw))
+        : null,
     next_action: String(formData.get('next_action') || '').trim() || null,
     next_action_at: String(formData.get('next_action_at') || '') || null,
     notes: String(formData.get('notes') || '').trim() || null,
   }
 
-  if (!payload.name) {
-    return { error: 'Nome do lead é obrigatório.' }
-  }
+  if (!payload.name) return { error: 'Nome do lead é obrigatório.' }
 
   const { error } = await supabase.from('leads').insert(payload)
   if (error) return { error: error.message }
@@ -43,7 +55,11 @@ export async function createLead(formData: FormData) {
 }
 
 export async function updateLead(id: string, formData: FormData) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const proposalRaw = Number(formData.get('proposal_value'))
+  const maturityRaw = Number(formData.get('maturity_score'))
 
   const update: Record<string, unknown> = {
     name: String(formData.get('name') || '').trim(),
@@ -54,12 +70,14 @@ export async function updateLead(id: string, formData: FormData) {
     stage: String(formData.get('stage') || 'sem_contato'),
     source: String(formData.get('source') || 'manual'),
     notes: String(formData.get('notes') || '').trim() || null,
-    proposal_value: formData.get('proposal_value')
-      ? Number(formData.get('proposal_value'))
-      : null,
-    maturity_score: formData.get('maturity_score')
-      ? Number(formData.get('maturity_score'))
-      : null,
+    proposal_value:
+      formData.get('proposal_value') && !Number.isNaN(proposalRaw) && proposalRaw >= 0
+        ? proposalRaw
+        : null,
+    maturity_score:
+      formData.get('maturity_score') && !Number.isNaN(maturityRaw)
+        ? Math.min(100, Math.max(0, maturityRaw))
+        : null,
   }
 
   if (formData.has('next_action')) {
@@ -81,7 +99,9 @@ export async function moveLead(
   toStage: LeadStage,
   toPosition: number
 ) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
   const { error } = await supabase
     .from('leads')
     .update({ stage: toStage, position: toPosition })
@@ -104,8 +124,10 @@ export async function addActivity(
   description: string,
   scheduledAt?: string | null
 ) {
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   if (!description.trim()) return { error: 'Descrição obrigatória.' }
-  const supabase = await createClient()
+
   const { error } = await supabase.from('lead_activities').insert({
     lead_id: leadId,
     type,
@@ -123,8 +145,10 @@ export async function addLeadTask(
   dueDate: string | null,
   type: LeadTaskType = 'task'
 ) {
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
   if (!title.trim()) return { error: 'Título obrigatório.' }
-  const supabase = await createClient()
+
   const { error } = await supabase.from('lead_tasks').insert({
     lead_id: leadId,
     title: title.trim(),
@@ -137,7 +161,9 @@ export async function addLeadTask(
 }
 
 export async function toggleLeadTask(taskId: string, completed: boolean) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
   const { error } = await supabase
     .from('lead_tasks')
     .update({ completed })
@@ -148,7 +174,9 @@ export async function toggleLeadTask(taskId: string, completed: boolean) {
 }
 
 export async function deleteLeadTask(taskId: string) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
   const { error } = await supabase
     .from('lead_tasks')
     .delete()
@@ -159,7 +187,10 @@ export async function deleteLeadTask(taskId: string) {
 }
 
 export async function convertLeadToClient(leadId: string, monthlyFee: number) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+  if (!monthlyFee || Number.isNaN(monthlyFee) || monthlyFee < 0)
+    return { error: 'Ticket mensal inválido.' }
 
   const { data: lead, error: leadErr } = await supabase
     .from('leads')

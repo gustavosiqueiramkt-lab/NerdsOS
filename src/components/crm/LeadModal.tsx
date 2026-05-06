@@ -63,6 +63,8 @@ export function LeadModal({ lead, open, onOpenChange }: LeadModalProps) {
   const [activities, setActivities] = useState<LeadActivity[]>([])
   const [tasks, setTasks] = useState<LeadTask[]>([])
   const [pending, startTransition] = useTransition()
+  const [convertOpen, setConvertOpen] = useState(false)
+  const [convertFee, setConvertFee] = useState('')
 
   useEffect(() => {
     if (!lead || !open) return
@@ -172,20 +174,25 @@ export function LeadModal({ lead, open, onOpenChange }: LeadModalProps) {
     })
   }
 
-  const handleConvert = () => {
-    const fee = Number(prompt('Ticket mensal (R$)?', String(lead.proposal_value || 0)))
-    if (!fee || Number.isNaN(fee)) return
+  const handleConvertConfirm = () => {
+    const fee = Number(convertFee.replace(',', '.'))
+    if (!fee || Number.isNaN(fee) || fee <= 0) {
+      toast.error('Informe um valor válido.')
+      return
+    }
     startTransition(async () => {
       const res = await convertLeadToClient(lead.id, fee)
       if (res?.error) toast.error(res.error)
       else {
         toast.success('Lead convertido em cliente — onboarding criado.')
+        setConvertOpen(false)
         onOpenChange(false)
       }
     })
   }
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
         <SheetHeader>
@@ -314,9 +321,8 @@ export function LeadModal({ lead, open, onOpenChange }: LeadModalProps) {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() =>
-                    (window.location.href = `/propostas?lead=${lead.id}`)
-                  }
+                  disabled
+                  title="Em breve — Fase 2"
                 >
                   Gerar proposta
                 </Button>
@@ -324,7 +330,10 @@ export function LeadModal({ lead, open, onOpenChange }: LeadModalProps) {
                   <Button
                     type="button"
                     variant="default"
-                    onClick={handleConvert}
+                    onClick={() => {
+                      setConvertFee(String(lead.proposal_value || ''))
+                      setConvertOpen(true)
+                    }}
                     disabled={pending}
                   >
                     Converter em cliente
@@ -527,5 +536,55 @@ export function LeadModal({ lead, open, onOpenChange }: LeadModalProps) {
         </div>
       </SheetContent>
     </Sheet>
+
+    {/* Modal inline de confirmação de conversão */}
+    {convertOpen ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="w-full max-w-sm rounded-xl border border-[#2A2A45] bg-[#13131F] p-6 shadow-2xl">
+          <h3 className="text-base font-semibold text-[var(--color-foreground)]">
+            Converter em cliente
+          </h3>
+          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+            Informe o ticket mensal para criar o contrato.
+          </p>
+          <div className="mt-4 space-y-1.5">
+            <Label htmlFor="convert-fee">Ticket mensal (R$)</Label>
+            <Input
+              id="convert-fee"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Ex: 2500"
+              value={convertFee}
+              onChange={(e) => setConvertFee(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConvertConfirm()
+                if (e.key === 'Escape') setConvertOpen(false)
+              }}
+            />
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setConvertOpen(false)}
+              disabled={pending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConvertConfirm}
+              disabled={pending}
+            >
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Confirmar
+            </Button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   )
 }

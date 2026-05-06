@@ -33,8 +33,17 @@ const FIXED_COST_DEFAULTS: Array<{
   { category: 'Pró-labore Sócio 2', amount: 0, description: '' },
 ]
 
-export async function ensureMonth(year: number, month: number) {
+async function getAuthUser() {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return { supabase, user }
+}
+
+export async function ensureMonth(year: number, month: number) {
+  const { supabase, user } = await getAuthUser()
+  if (!user) return
 
   const { data: existing } = await supabase
     .from('financial_entries')
@@ -47,14 +56,7 @@ export async function ensureMonth(year: number, month: number) {
 
   if (!types.has('revenue')) {
     REVENUE_DEFAULTS.forEach((category) =>
-      inserts.push({
-        year,
-        month,
-        type: 'revenue',
-        category,
-        amount: 0,
-        is_recurring: false,
-      })
+      inserts.push({ year, month, type: 'revenue', category, amount: 0, is_recurring: false })
     )
   }
 
@@ -82,7 +84,9 @@ export async function addEntry(
   month: number,
   type: 'revenue' | 'direct_cost' | 'fixed_cost'
 ) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
   const { data, error } = await supabase
     .from('financial_entries')
     .insert({ year, month, type, category: '', amount: 0 })
@@ -102,7 +106,15 @@ export async function patchEntry(
     client_id?: string | null
   }
 ) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  if (patch.amount !== undefined) {
+    if (Number.isNaN(patch.amount) || !Number.isFinite(patch.amount) || patch.amount < 0) {
+      return { error: 'Valor inválido.' }
+    }
+  }
+
   const { error } = await supabase
     .from('financial_entries')
     .update(patch)
@@ -113,7 +125,9 @@ export async function patchEntry(
 }
 
 export async function deleteEntry(id: string) {
-  const supabase = await createClient()
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
   const { error } = await supabase
     .from('financial_entries')
     .delete()

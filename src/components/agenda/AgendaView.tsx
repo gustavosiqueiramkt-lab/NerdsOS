@@ -45,6 +45,7 @@ const TYPE_LABEL: Record<LeadTaskType, string> = {
   call: 'Ligação',
   meeting: 'Reunião',
   email: 'E-mail',
+  note: 'Nota',
   task: 'Tarefa',
   whatsapp: 'WhatsApp',
   outro: 'Outro',
@@ -55,9 +56,10 @@ const TYPE_COLOR: Record<LeadTaskType, string> = {
   call: '#10B981',
   meeting: '#FF6B35',
   email: '#A78BFA',
+  note: '#9CA3AF',
   task: '#555570',
   whatsapp: '#22C55E',
-  outro: '#9CA3AF',
+  outro: '#6B7280',
 }
 
 interface AgendaViewProps {
