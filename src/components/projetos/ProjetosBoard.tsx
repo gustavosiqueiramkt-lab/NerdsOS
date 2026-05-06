@@ -398,7 +398,11 @@ function Column({
                     ref={p.innerRef}
                     {...p.draggableProps}
                     {...p.dragHandleProps}
-                    className={s.isDragging ? 'rotate-1' : ''}
+                    style={{
+                      ...p.draggableProps.style,
+                      opacity: s.isDragging ? 0.7 : 1,
+                    }}
+                    className={s.isDragging ? 'rotate-1 shadow-xl shadow-black/40' : ''}
                   >
                     <TaskCard task={t} onClick={() => onCardClick(t)} />
                   </div>

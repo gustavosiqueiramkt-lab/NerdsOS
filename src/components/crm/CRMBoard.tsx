@@ -85,6 +85,10 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
     const next = leads.map((l) => (l.id === moving.id ? { ...l, stage: target } : l))
     setLeads(next)
 
+    if (target === 'fechado') {
+      setSelected({ ...moving, stage: target })
+    }
+
     startTransition(async () => {
       const res = await moveLead(moving.id, target, destination.index)
       if (res?.error) {
@@ -163,7 +167,11 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
                               ref={p.innerRef}
                               {...p.draggableProps}
                               {...p.dragHandleProps}
-                              className={s.isDragging ? 'rotate-1' : ''}
+                              style={{
+                                ...p.draggableProps.style,
+                                opacity: s.isDragging ? 0.7 : 1,
+                              }}
+                              className={s.isDragging ? 'rotate-1 shadow-xl shadow-black/40' : ''}
                             >
                               <LeadCard
                                 lead={lead}
