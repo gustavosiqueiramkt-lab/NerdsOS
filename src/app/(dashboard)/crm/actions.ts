@@ -87,11 +87,16 @@ export async function updateLead(id: string, formData: FormData) {
     update.next_action_at = String(formData.get('next_action_at') || '') || null
   }
 
-  const { error } = await supabase.from('leads').update(update).eq('id', id)
+  const { data: lead, error } = await supabase
+    .from('leads')
+    .update(update)
+    .eq('id', id)
+    .select()
+    .single()
   if (error) return { error: error.message }
 
   revalidatePath('/crm')
-  return { ok: true }
+  return { ok: true, lead }
 }
 
 export async function moveLead(

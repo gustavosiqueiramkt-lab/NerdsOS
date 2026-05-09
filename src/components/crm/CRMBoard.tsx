@@ -2,12 +2,6 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  type DropResult,
-} from '@hello-pangea/dnd'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -57,6 +51,8 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
   const [, startTransition] = useTransition()
   const [selected, setSelected] = useState<Lead | null>(null)
   const [addingTo, setAddingTo] = useState<LeadStage | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<LeadStage | null>(null)
 
   const grouped = useMemo(() => group(leads), [leads])
 
@@ -69,28 +65,37 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
     if (found) setSelected(found)
   }, [searchParams, leads])
 
-  const handleDragEnd = (result: DropResult) => {
-    const { source, destination, draggableId } = result
-    if (!destination) return
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
+  const handleDragStart = (e: React.DragEvent, leadId: string) => {
+    e.dataTransfer.setData('leadId', leadId)
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggingId(leadId)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingId(null)
+    setDragOverCol(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetStage: LeadStage) => {
+    e.preventDefault()
+    const leadId = e.dataTransfer.getData('leadId')
+    const moving = leads.find((l) => l.id === leadId)
+    setDragOverCol(null)
+
+    if (!moving || moving.stage === targetStage) return
+
+    const targetIndex = grouped[targetStage].length
+    const next = leads.map((l) =>
+      l.id === leadId ? { ...l, stage: targetStage } : l
     )
-      return
-
-    const target = destination.droppableId as LeadStage
-    const moving = leads.find((l) => l.id === draggableId)
-    if (!moving) return
-
-    const next = leads.map((l) => (l.id === moving.id ? { ...l, stage: target } : l))
     setLeads(next)
 
-    if (target === 'fechado') {
-      setSelected({ ...moving, stage: target })
+    if (targetStage === 'fechado') {
+      setSelected({ ...moving, stage: targetStage })
     }
 
     startTransition(async () => {
-      const res = await moveLead(moving.id, target, destination.index)
+      const res = await moveLead(leadId, targetStage, targetIndex)
       if (res?.error) {
         toast.error(res.error)
         setLeads(initialLeads)
@@ -98,104 +103,116 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
     })
   }
 
+  const handleLeadUpdated = (updatedLead: Lead) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === updatedLead.id ? updatedLead : l))
+    )
+    setSelected(updatedLead)
+  }
+
   return (
     <>
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {LEAD_STAGES.map(({ id, label }) => {
-            const colLeads = grouped[id]
-            const total = colLeads.reduce(
-              (sum, l) => sum + Number(l.proposal_value || 0),
-              0
-            )
-            return (
-              <Droppable key={id} droppableId={id}>
-                {(provided, snapshot) => (
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {LEAD_STAGES.map(({ id, label }) => {
+          const colLeads = grouped[id]
+          const total = colLeads.reduce(
+            (sum, l) => sum + Number(l.proposal_value || 0),
+            0
+          )
+          const isOver = dragOverCol === id
+
+          return (
+            <div
+              key={id}
+              className="w-72 shrink-0 rounded-xl bg-[#13131F] transition-colors"
+              style={{
+                border: isOver
+                  ? '1px solid rgba(255,107,53,0.31)'
+                  : '1px solid #2A2A45',
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOverCol(id)
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault()
+                setDragOverCol(id)
+              }}
+              onDragLeave={(e) => {
+                if (
+                  !e.relatedTarget ||
+                  !e.currentTarget.contains(e.relatedTarget as Node)
+                ) {
+                  if (dragOverCol === id) setDragOverCol(null)
+                }
+              }}
+              onDrop={(e) => handleDrop(e, id)}
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-[#2A2A45] px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-foreground)]">
+                    {label}
+                  </p>
+                  <p className="text-[10px] text-[var(--color-muted-foreground)]">
+                    {colLeads.length} card{colLeads.length === 1 ? '' : 's'}
+                    {total > 0 ? ` · ${formatBRL(total)}` : ''}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setAddingTo(id)}
+                  title="Adicionar lead"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div
+                className={
+                  'min-h-[200px] space-y-2 p-2 transition-colors ' +
+                  (isOver ? 'bg-[#1E1E35]' : '')
+                }
+              >
+                {colLeads.length === 0 && !isOver ? (
+                  <div className="flex flex-col items-center justify-center gap-1.5 py-10 select-none">
+                    <span style={{ color: '#333350', fontSize: 22 }}>⊕</span>
+                    <span className="text-[11px]" style={{ color: '#333350' }}>
+                      Arraste cards aqui
+                    </span>
+                  </div>
+                ) : null}
+                {colLeads.map((lead) => (
                   <div
-                    className="w-72 shrink-0 rounded-xl bg-[#13131F] transition-colors"
+                    key={lead.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, lead.id)}
+                    onDragEnd={handleDragEnd}
                     style={{
-                      border: snapshot.isDraggingOver
-                        ? '1px solid rgba(255,107,53,0.31)'
-                        : '1px solid #2A2A45',
+                      opacity: draggingId === lead.id ? 0.6 : 1,
+                      cursor: draggingId === lead.id ? 'grabbing' : 'grab',
+                      transition: 'opacity 0.15s',
                     }}
                   >
-                    <div className="flex items-center justify-between gap-2 border-b border-[#2A2A45] px-3 py-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-foreground)]">
-                          {label}
-                        </p>
-                        <p className="text-[10px] text-[var(--color-muted-foreground)]">
-                          {colLeads.length} card{colLeads.length === 1 ? '' : 's'}
-                          {total > 0 ? ` · ${formatBRL(total)}` : ''}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setAddingTo(id)}
-                        title="Adicionar lead"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={
-                        'min-h-[200px] space-y-2 p-2 transition-colors ' +
-                        (snapshot.isDraggingOver ? 'bg-[#1E1E35]' : '')
-                      }
-                    >
-                      {colLeads.length === 0 && !snapshot.isDraggingOver ? (
-                        <div className="flex flex-col items-center justify-center gap-1.5 py-10 select-none">
-                          <span style={{ color: '#333350', fontSize: 22 }}>⊕</span>
-                          <span className="text-[11px]" style={{ color: '#333350' }}>
-                            Arraste cards aqui
-                          </span>
-                        </div>
-                      ) : null}
-                      {colLeads.map((lead, index) => (
-                        <Draggable
-                          key={lead.id}
-                          draggableId={lead.id}
-                          index={index}
-                        >
-                          {(p, s) => (
-                            <div
-                              ref={p.innerRef}
-                              {...p.draggableProps}
-                              {...p.dragHandleProps}
-                              style={{
-                                ...p.draggableProps.style,
-                                opacity: s.isDragging ? 0.7 : 1,
-                              }}
-                              className={s.isDragging ? 'rotate-1 shadow-xl shadow-black/40' : ''}
-                            >
-                              <LeadCard
-                                lead={lead}
-                                nextTask={nextTaskByLead[lead.id]}
-                                onClick={() => setSelected(lead)}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
+                    <LeadCard
+                      lead={lead}
+                      nextTask={nextTaskByLead[lead.id]}
+                      onClick={() => setSelected(lead)}
+                    />
                   </div>
-                )}
-              </Droppable>
-            )
-          })}
-        </div>
-      </DragDropContext>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
 
       <LeadModal
         lead={selected}
         open={!!selected}
         onOpenChange={(o) => !o && setSelected(null)}
+        onLeadUpdated={handleLeadUpdated}
       />
 
       <Sheet open={!!addingTo} onOpenChange={(o) => !o && setAddingTo(null)}>

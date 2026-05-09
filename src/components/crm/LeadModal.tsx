@@ -40,6 +40,7 @@ interface LeadModalProps {
   lead: Lead | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onLeadUpdated?: (updatedLead: Lead) => void
 }
 
 const TASK_TYPES: LeadTaskType[] = [
@@ -59,7 +60,7 @@ const ACTIVITY_TYPES: LeadActivityType[] = [
   'note',
 ]
 
-export function LeadModal({ lead, open, onOpenChange }: LeadModalProps) {
+export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModalProps) {
   const [activities, setActivities] = useState<LeadActivity[]>([])
   const [tasks, setTasks] = useState<LeadTask[]>([])
   const [pending, startTransition] = useTransition()
@@ -113,8 +114,12 @@ export function LeadModal({ lead, open, onOpenChange }: LeadModalProps) {
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
       const res = await updateLead(lead.id, fd)
-      if (res?.error) toast.error(res.error)
-      else toast.success('Lead atualizado')
+      if (res?.error) {
+        toast.error(res.error)
+      } else {
+        toast.success('Lead atualizado com sucesso')
+        if (res.lead) onLeadUpdated?.(res.lead as Lead)
+      }
     })
   }
 
