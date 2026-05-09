@@ -63,7 +63,7 @@ const TYPE_COLOR: Record<LeadTaskType, string> = {
 }
 
 interface AgendaViewProps {
-  weekStart: string // ISO
+  weekStart: string // yyyy-MM-dd
   weekTasks: TaskWithLead[]
   overdueTasks: TaskWithLead[]
   leads: { id: string; name: string; company: string | null }[]
@@ -87,7 +87,9 @@ export function AgendaView({
     due_at?: string
   } | null>(null)
 
-  const start = useMemo(() => new Date(weekStart), [weekStart])
+  // Append T00:00:00 so the date is always parsed as local midnight,
+  // avoiding UTC-offset shifts that flip the day when toISOString() crosses midnight.
+  const start = useMemo(() => new Date(weekStart + 'T00:00:00'), [weekStart])
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(start, i)),
     [start]

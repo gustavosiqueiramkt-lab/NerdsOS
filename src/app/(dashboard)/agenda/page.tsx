@@ -1,4 +1,4 @@
-import { addDays, startOfDay, startOfWeek } from 'date-fns'
+import { addDays, format, startOfDay, startOfWeek } from 'date-fns'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { AgendaView, type TaskWithLead } from '@/components/agenda/AgendaView'
@@ -46,7 +46,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         subtitle="Tarefas e atividades da semana, integradas com o CRM."
       />
       <AgendaView
-        weekStart={weekStart.toISOString()}
+        weekStart={format(weekStart, 'yyyy-MM-dd')}
         weekTasks={(weekRows as TaskWithLead[]) || []}
         overdueTasks={(overdueRows as TaskWithLead[]) || []}
         leads={
