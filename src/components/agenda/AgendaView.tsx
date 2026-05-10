@@ -10,8 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
-  Link2,
   Plus,
+  Unlink,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -24,12 +24,24 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { NewTaskModal } from './NewTaskModal'
-import { toggleAgendaTask } from '@/app/(dashboard)/agenda/actions'
+import {
+  disconnectGoogleCalendar,
+  toggleAgendaTask,
+} from '@/app/(dashboard)/agenda/actions'
 import { cn } from '@/lib/utils'
 import type { LeadTask, LeadTaskType } from '@/types/database'
 
 export type TaskWithLead = LeadTask & {
   lead: { id: string; name: string; company: string | null } | null
+}
+
+export interface GoogleCalendarEvent {
+  id: string
+  title: string
+  start: string
+  end: string
+  allDay: boolean
+  htmlLink?: string
 }
 
 const HOUR_START = 8
@@ -62,11 +74,17 @@ const TYPE_COLOR: Record<LeadTaskType, string> = {
   outro: '#6B7280',
 }
 
+const GCAL_COLOR = '#4285F4'
+
 interface AgendaViewProps {
   weekStart: string // yyyy-MM-dd
   weekTasks: TaskWithLead[]
   overdueTasks: TaskWithLead[]
   leads: { id: string; name: string; company: string | null }[]
+  isGoogleConnected: boolean
+  googleEvents: GoogleCalendarEvent[]
+  justConnected?: boolean
+  connectionError?: string | null
 }
 
 export function AgendaView({
@@ -74,43 +92,54 @@ export function AgendaView({
   weekTasks,
   overdueTasks,
   leads,
+  isGoogleConnected,
+  googleEvents,
+  justConnected,
+  connectionError,
 }: AgendaViewProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [, startTransition] = useTransition()
-  const [selectedDay, setSelectedDay] = useState(() =>
-    startOfDay(new Date())
-  )
+  const [selectedDay, setSelectedDay] = useState(() => startOfDay(new Date()))
   const [openTask, setOpenTask] = useState<TaskWithLead | null>(null)
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [newTaskDefaults, setNewTaskDefaults] = useState<{
     due_at?: string
   } | null>(null)
 
-  // Append T00:00:00 so the date is always parsed as local midnight,
-  // avoiding UTC-offset shifts that flip the day when toISOString() crosses midnight.
+  // Append T00:00:00 so the date is always parsed as local midnight
   const start = useMemo(() => new Date(weekStart + 'T00:00:00'), [weekStart])
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(start, i)),
     [start]
   )
 
-  // Today might fall outside this week (after navigation); clamp selectedDay
-  // into the visible week so the right-side checklist shows something useful.
+  // Clamp selected day into the visible week
   useEffect(() => {
     const today = startOfDay(new Date())
     const inWeek = days.some((d) => isSameDay(d, today))
     setSelectedDay(inWeek ? today : startOfDay(days[0]))
   }, [days])
 
+  // Toast for OAuth result then clear params
+  useEffect(() => {
+    if (!justConnected && !connectionError) return
+    if (justConnected) toast.success('Google Calendar conectado!')
+    if (connectionError)
+      toast.error(
+        connectionError === 'oauth_failed'
+          ? 'Erro ao conectar com o Google. Tente novamente.'
+          : `Erro: ${connectionError}`
+      )
+    router.replace(pathname)
+  }, [justConnected, connectionError, pathname, router])
+
   const goWeek = (offset: number) => {
     const next = addDays(start, offset * 7)
     router.push(`${pathname}?week=${format(next, 'yyyy-MM-dd')}`)
   }
 
-  const goToday = () => {
-    router.push(pathname)
-  }
+  const goToday = () => router.push(pathname)
 
   const formatRange = () => {
     const last = addDays(start, 6)
@@ -120,6 +149,7 @@ export function AgendaView({
     return `${format(start, 'd MMM', { locale: ptBR })} a ${format(last, "d 'de' MMM yyyy", { locale: ptBR })}`
   }
 
+  // ── NerdsOS tasks grouped by day ──────────────────────────────────────────
   const tasksByDay = useMemo(() => {
     const map = new Map<string, TaskWithLead[]>()
     for (const t of weekTasks) {
@@ -131,28 +161,54 @@ export function AgendaView({
     return map
   }, [weekTasks])
 
-  const allDayPerDay = (day: Date) => {
-    const list = tasksByDay.get(format(day, 'yyyy-MM-dd')) || []
-    return list.filter((t) => {
-      const d = new Date(t.due_date!)
-      const h = d.getHours()
+  const allDayPerDay = (day: Date) =>
+    (tasksByDay.get(format(day, 'yyyy-MM-dd')) || []).filter((t) => {
+      const h = new Date(t.due_date!).getHours()
       return h < HOUR_START || h > HOUR_END
     })
-  }
 
-  const timedPerDay = (day: Date) => {
-    const list = tasksByDay.get(format(day, 'yyyy-MM-dd')) || []
-    return list.filter((t) => {
-      const d = new Date(t.due_date!)
-      const h = d.getHours()
+  const timedPerDay = (day: Date) =>
+    (tasksByDay.get(format(day, 'yyyy-MM-dd')) || []).filter((t) => {
+      const h = new Date(t.due_date!).getHours()
       return h >= HOUR_START && h <= HOUR_END
     })
-  }
+
+  // ── Google Calendar events grouped by day ─────────────────────────────────
+  const gcalByDay = useMemo(() => {
+    const map = new Map<string, GoogleCalendarEvent[]>()
+    for (const e of googleEvents) {
+      if (!e.start) continue
+      // all-day events have a date-only start like "2026-05-11"
+      const key = e.allDay
+        ? e.start.slice(0, 10)
+        : format(new Date(e.start), 'yyyy-MM-dd')
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(e)
+    }
+    return map
+  }, [googleEvents])
+
+  const gcalAllDayPerDay = (day: Date) =>
+    (gcalByDay.get(format(day, 'yyyy-MM-dd')) || []).filter((e) => e.allDay)
+
+  const gcalTimedPerDay = (day: Date) =>
+    (gcalByDay.get(format(day, 'yyyy-MM-dd')) || []).filter((e) => {
+      if (e.allDay) return false
+      const h = new Date(e.start).getHours()
+      return h >= HOUR_START && h <= HOUR_END
+    })
 
   const toggleDone = (id: string, completed: boolean) => {
     startTransition(async () => {
       const res = await toggleAgendaTask(id, completed)
       if (res?.error) toast.error(res.error)
+    })
+  }
+
+  const handleDisconnect = () => {
+    startTransition(async () => {
+      await disconnectGoogleCalendar()
+      router.refresh()
     })
   }
 
@@ -164,25 +220,27 @@ export function AgendaView({
 
   return (
     <div className="space-y-4">
-      {/* Google Calendar banner */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-[#4ECDC4]/40 bg-gradient-to-r from-[#4ECDC4]/5 via-transparent to-transparent px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#4ECDC4]/15">
-            <Link2 className="h-4 w-4 text-[#4ECDC4]" />
+      {/* Google Calendar connection banner */}
+      {!isGoogleConnected && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-[#4285F4]/40 bg-gradient-to-r from-[#4285F4]/5 via-transparent to-transparent px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#4285F4]/15">
+              <CalendarDays className="h-4 w-4 text-[#4285F4]" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-[var(--color-foreground)]">
+                Conectar Google Calendar
+              </p>
+              <p className="text-xs text-[var(--color-muted-foreground)]">
+                Sincronize seus eventos do Google diretamente na agenda.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-[var(--color-foreground)]">
-              Conectar Google Calendar
-            </p>
-            <p className="text-xs text-[var(--color-muted-foreground)]">
-              Sincronize sua agenda pessoal com o NerdsOS — em breve.
-            </p>
-          </div>
+          <Button size="sm" asChild>
+            <a href="/api/auth/google">Conectar</a>
+          </Button>
         </div>
-        <Badge variant="outline" className="text-[10px]">
-          em breve
-        </Badge>
-      </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -210,14 +268,35 @@ export function AgendaView({
             Hoje
           </Button>
         </div>
-        <Button
-          onClick={() => {
-            setNewTaskDefaults(null)
-            setNewTaskOpen(true)
-          }}
-        >
-          <Plus className="h-4 w-4" /> Nova tarefa
-        </Button>
+
+        <div className="flex items-center gap-3">
+          {isGoogleConnected && (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                Google Calendar conectado
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 px-2 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-destructive)]"
+                onClick={handleDisconnect}
+                title="Desconectar Google Calendar"
+              >
+                <Unlink className="h-3 w-3" />
+                Desconectar
+              </Button>
+            </div>
+          )}
+          <Button
+            onClick={() => {
+              setNewTaskDefaults(null)
+              setNewTaskOpen(true)
+            }}
+          >
+            <Plus className="h-4 w-4" /> Nova tarefa
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
@@ -267,10 +346,11 @@ export function AgendaView({
                 </div>
                 {days.map((d) => {
                   const items = allDayPerDay(d)
+                  const gcalItems = gcalAllDayPerDay(d)
                   return (
                     <div
                       key={d.toISOString()}
-                      className="border-l border-[var(--color-border)] p-1 min-h-[28px] flex flex-col gap-1"
+                      className="flex min-h-[28px] flex-col gap-1 border-l border-[var(--color-border)] p-1"
                     >
                       {items.map((t) => (
                         <BlockButton
@@ -278,6 +358,9 @@ export function AgendaView({
                           task={t}
                           onClick={() => setOpenTask(t)}
                         />
+                      ))}
+                      {gcalItems.map((e) => (
+                        <GCalBlockButton key={`g-${e.id}`} event={e} />
                       ))}
                     </div>
                   )
@@ -320,7 +403,7 @@ export function AgendaView({
                       <button
                         key={`btn-${i}`}
                         type="button"
-                        className="absolute left-0 right-0 hover:bg-[var(--color-accent)]/30 transition-colors"
+                        className="absolute left-0 right-0 transition-colors hover:bg-[var(--color-accent)]/30"
                         style={{ top: i * HOUR_PX, height: HOUR_PX }}
                         onClick={() => {
                           const dt = new Date(d)
@@ -333,7 +416,7 @@ export function AgendaView({
                       />
                     ))}
 
-                    {/* tasks */}
+                    {/* NerdsOS tasks */}
                     {timedPerDay(d).map((t) => {
                       const dt = new Date(t.due_date!)
                       const offsetMin =
@@ -355,6 +438,7 @@ export function AgendaView({
                             backgroundColor: TYPE_COLOR[t.type] + '22',
                             borderLeft: `3px solid ${TYPE_COLOR[t.type]}`,
                             color: 'var(--color-foreground)',
+                            zIndex: 2,
                           }}
                         >
                           <span className="block truncate">{t.title}</span>
@@ -363,6 +447,39 @@ export function AgendaView({
                             {t.lead?.company ? ` · ${t.lead.company}` : ''}
                           </span>
                         </button>
+                      )
+                    })}
+
+                    {/* Google Calendar events */}
+                    {gcalTimedPerDay(d).map((e) => {
+                      const dt = new Date(e.start)
+                      const offsetMin =
+                        (dt.getHours() - HOUR_START) * 60 + dt.getMinutes()
+                      const top = (offsetMin / 60) * HOUR_PX
+                      return (
+                        <a
+                          key={`g-${e.id}`}
+                          href={e.htmlLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute left-1 right-1 rounded-md px-2 py-1 text-left text-xs font-medium shadow-sm ring-1 ring-black/20 transition-all hover:ring-2 hover:brightness-110"
+                          style={{
+                            top,
+                            minHeight: 28,
+                            height: 44,
+                            backgroundColor: GCAL_COLOR + '22',
+                            borderLeft: `3px solid ${GCAL_COLOR}`,
+                            color: 'var(--color-foreground)',
+                            zIndex: 1,
+                          }}
+                        >
+                          <span className="block truncate">
+                            📅 {e.title}
+                          </span>
+                          <span className="block text-[10px] tabular-nums opacity-70">
+                            {format(dt, 'HH:mm')} · Google Calendar
+                          </span>
+                        </a>
                       )
                     })}
                   </div>
@@ -426,10 +543,7 @@ export function AgendaView({
       </div>
 
       {/* Task popover */}
-      <Sheet
-        open={!!openTask}
-        onOpenChange={(o) => !o && setOpenTask(null)}
-      >
+      <Sheet open={!!openTask} onOpenChange={(o) => !o && setOpenTask(null)}>
         <SheetContent side="right" className="sm:max-w-sm">
           <SheetHeader>
             <SheetTitle>{openTask?.title}</SheetTitle>
@@ -481,10 +595,7 @@ export function AgendaView({
                     checked={openTask.completed}
                     onChange={(e) => {
                       toggleDone(openTask.id, e.target.checked)
-                      setOpenTask({
-                        ...openTask,
-                        completed: e.target.checked,
-                      })
+                      setOpenTask({ ...openTask, completed: e.target.checked })
                     }}
                   />
                   Marcar como concluída
@@ -532,7 +643,7 @@ function BlockButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-md px-2 py-0.5 text-left text-[10px] font-medium ring-1 ring-black/20 truncate',
+        'truncate rounded-md px-2 py-0.5 text-left text-[10px] font-medium ring-1 ring-black/20',
         task.completed && 'opacity-60 line-through'
       )}
       style={{
@@ -543,6 +654,24 @@ function BlockButton({
     >
       {task.title}
     </button>
+  )
+}
+
+function GCalBlockButton({ event }: { event: GoogleCalendarEvent }) {
+  return (
+    <a
+      href={event.htmlLink}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="truncate rounded-md px-2 py-0.5 text-left text-[10px] font-medium ring-1 ring-black/20 hover:brightness-110"
+      style={{
+        backgroundColor: GCAL_COLOR + '22',
+        borderLeft: `2px solid ${GCAL_COLOR}`,
+        color: 'var(--color-foreground)',
+      }}
+    >
+      📅 {event.title}
+    </a>
   )
 }
 
@@ -565,16 +694,12 @@ function ChecklistItem({
         onChange={(e) => onToggle(e.target.checked)}
         className="mt-0.5"
       />
-      <button
-        type="button"
-        onClick={onClick}
-        className="min-w-0 flex-1 text-left"
-      >
+      <button type="button" onClick={onClick} className="min-w-0 flex-1 text-left">
         <p
           className={cn(
             'truncate text-sm',
             task.completed
-              ? 'line-through text-[var(--color-muted-foreground)]'
+              ? 'text-[var(--color-muted-foreground)] line-through'
               : overdue
                 ? 'text-[var(--color-destructive)]'
                 : 'text-[var(--color-foreground)]'
@@ -584,9 +709,7 @@ function ChecklistItem({
         </p>
         <p className="truncate text-[10px] text-[var(--color-muted-foreground)]">
           {task.due_date
-            ? format(new Date(task.due_date), "d MMM · HH:mm", {
-                locale: ptBR,
-              })
+            ? format(new Date(task.due_date), "d MMM · HH:mm", { locale: ptBR })
             : '—'}
           {task.lead?.company ? ` · ${task.lead.company}` : ''}
         </p>

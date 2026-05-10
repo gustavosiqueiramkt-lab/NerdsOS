@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createCalendarEvent } from '@/lib/google-calendar'
 import type { LeadTaskType } from '@/types/database'
 
 const VALID_TYPES: LeadTaskType[] = [
@@ -46,6 +47,11 @@ export async function createAgendaTask(formData: FormData) {
 
   if (error) return { error: error.message }
 
+  // Mirror to Google Calendar if the user is connected and has a due date
+  if (due) {
+    await createCalendarEvent(user.id, { title, start: due }).catch(() => null)
+  }
+
   revalidatePath('/agenda')
   revalidatePath('/crm')
   revalidatePath('/dashboard')
@@ -65,5 +71,14 @@ export async function toggleAgendaTask(id: string, completed: boolean) {
   revalidatePath('/agenda')
   revalidatePath('/crm')
   revalidatePath('/dashboard')
+  return { ok: true }
+}
+
+export async function disconnectGoogleCalendar() {
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  await supabase.from('google_tokens').delete().eq('user_id', user.id)
+  revalidatePath('/agenda')
   return { ok: true }
 }
