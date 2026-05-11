@@ -71,37 +71,39 @@ export function AddLeadForm({ defaultStage, onDone }: AddLeadFormProps) {
             <option value="site">Site</option>
           </select>
         </Field>
-        <Field id="add-value" label="Valor da proposta (R$)">
-          <Input
-            id="add-value"
-            name="proposal_value"
-            type="number"
-            step="0.01"
+        <Field id="add-maturity" label={`Maturidade — ${maturity}/100`}>
+          <input
+            id="add-maturity"
+            name="maturity_score"
+            type="range"
             min="0"
+            max="100"
+            step="1"
+            value={maturity}
+            onChange={(e) => setMaturity(Number(e.target.value))}
+            className={cn(
+              'h-2 w-full cursor-pointer appearance-none rounded-full bg-[var(--color-muted)]',
+              '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-primary)]',
+              '[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[var(--color-primary)] [&::-moz-range-thumb]:border-0'
+            )}
           />
         </Field>
       </TwoCols>
 
-      <Field
-        id="add-maturity"
-        label={`Maturidade — ${maturity}/100`}
-      >
-        <input
-          id="add-maturity"
-          name="maturity_score"
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          value={maturity}
-          onChange={(e) => setMaturity(Number(e.target.value))}
-          className={cn(
-            'h-2 w-full cursor-pointer appearance-none rounded-full bg-[var(--color-muted)]',
-            '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-primary)]',
-            '[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[var(--color-primary)] [&::-moz-range-thumb]:border-0'
-          )}
-        />
-      </Field>
+      <div className="space-y-2 rounded-lg border border-[var(--color-border)] p-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Proposta</p>
+        <div className="grid grid-cols-3 gap-3">
+          <Field id="add-spot" label="Spot (R$)">
+            <Input id="add-spot" name="spot_value" type="number" step="0.01" min="0" placeholder="0,00" />
+          </Field>
+          <Field id="add-fee" label="Fee mensal (R$)">
+            <Input id="add-fee" name="fee_value" type="number" step="0.01" min="0" placeholder="0,00" />
+          </Field>
+          <Field id="add-fee-months" label="Período (meses)">
+            <Input id="add-fee-months" name="fee_months" type="number" min="1" step="1" placeholder="Ex: 12" />
+          </Field>
+        </div>
+      </div>
 
       <Field id="add-action" label="Próxima ação">
         <Input

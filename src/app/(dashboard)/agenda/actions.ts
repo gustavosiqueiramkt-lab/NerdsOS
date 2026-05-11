@@ -37,6 +37,7 @@ export async function createAgendaTask(formData: FormData) {
   const leadId = String(formData.get('lead_id') || '') || null
   const rawType = String(formData.get('type') || 'task') as LeadTaskType
   const type = VALID_TYPES.includes(rawType) ? rawType : 'task'
+  const description = String(formData.get('description') || '').trim() || undefined
 
   const { error } = await supabase.from('lead_tasks').insert({
     lead_id: leadId,
@@ -49,7 +50,19 @@ export async function createAgendaTask(formData: FormData) {
 
   // Mirror to Google Calendar if the user is connected and has a due date
   if (due) {
-    await createCalendarEvent(user.id, { title, start: due }).catch(() => null)
+    let calendarTitle = title
+    if (leadId) {
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('name, company')
+        .eq('id', leadId)
+        .maybeSingle()
+      if (lead) {
+        const clientName = (lead.company || lead.name) as string
+        calendarTitle = `${clientName} | ${title}`
+      }
+    }
+    await createCalendarEvent(user.id, { title: calendarTitle, description, start: due }).catch(() => null)
   }
 
   revalidatePath('/agenda')

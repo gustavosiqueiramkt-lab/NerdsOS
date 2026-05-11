@@ -27,6 +27,9 @@ export interface Lead {
   email: string | null
   stage: LeadStage
   proposal_value: number | null
+  spot_value: number | null
+  fee_value: number | null
+  fee_months: number | null
   proposal_sent_at: string | null
   maturity_score: number | null
   source: LeadSource
@@ -332,6 +335,7 @@ export const LEAD_STAGES: { id: LeadStage; label: string }[] = [
   { id: 'proposta_enviada', label: 'Proposta Enviada' },
   { id: 'negociacao', label: 'Negociação' },
   { id: 'fechado', label: 'Fechado' },
+  { id: 'perdido', label: 'Lost' },
 ]
 
 export const BOARD_PHASES: { id: BoardPhase; label: string }[] = [

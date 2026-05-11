@@ -126,11 +126,13 @@ export async function createCalendarEvent(
 
     const { data } = await calendar.events.insert({
       calendarId: 'primary',
+      sendUpdates: 'all',
       requestBody: {
         summary: event.title,
         description: event.description,
         start: { dateTime: new Date(event.start).toISOString(), timeZone: 'America/Sao_Paulo' },
         end: { dateTime: new Date(endTime).toISOString(), timeZone: 'America/Sao_Paulo' },
+        attendees: [{ email: 'maurocolace7@gmail.com' }],
       },
     })
 

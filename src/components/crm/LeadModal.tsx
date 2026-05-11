@@ -19,6 +19,7 @@ import {
   addActivity,
   addLeadTask,
   convertLeadToClient,
+  deleteLead,
   deleteLeadTask,
   toggleLeadTask,
   updateLead,
@@ -41,6 +42,8 @@ interface LeadModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onLeadUpdated?: (updatedLead: Lead) => void
+  onLeadDeleted?: (leadId: string) => void
+  onNextTaskChanged?: (leadId: string, task: LeadTask | undefined) => void
 }
 
 const TASK_TYPES: LeadTaskType[] = [
@@ -60,7 +63,7 @@ const ACTIVITY_TYPES: LeadActivityType[] = [
   'note',
 ]
 
-export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModalProps) {
+export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDeleted, onNextTaskChanged }: LeadModalProps) {
   const [activities, setActivities] = useState<LeadActivity[]>([])
   const [tasks, setTasks] = useState<LeadTask[]>([])
   const [pending, startTransition] = useTransition()
@@ -96,7 +99,13 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModal
       .select('*')
       .eq('lead_id', lead.id)
       .order('due_date', { ascending: true, nullsFirst: false })
-    setTasks((data as LeadTask[]) || [])
+    const updated = (data as LeadTask[]) || []
+    setTasks(updated)
+    const today = new Date().toISOString().slice(0, 10)
+    const next = updated
+      .filter((t) => !t.completed && t.due_date && t.due_date >= today)
+      .sort((a, b) => (a.due_date! > b.due_date! ? 1 : -1))[0]
+    onNextTaskChanged?.(lead.id, next)
   }
 
   const reloadActivities = async () => {
@@ -175,6 +184,19 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModal
       if (res?.error) toast.error(res.error)
       else {
         setTasks((prev) => prev.filter((x) => x.id !== id))
+      }
+    })
+  }
+
+  const handleDeleteClick = () => {
+    if (!confirm('Excluir este lead? Esta ação não pode ser desfeita.')) return
+    startTransition(async () => {
+      const res = await deleteLead(lead.id)
+      if (res?.error) toast.error(res.error)
+      else {
+        toast.success('Lead excluído.')
+        onOpenChange(false)
+        onLeadDeleted?.(lead.id)
       }
     })
   }
@@ -270,7 +292,6 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModal
                       {s.label}
                     </option>
                   ))}
-                  <option value="perdido">Perdido</option>
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -289,16 +310,6 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModal
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="m-value">Valor da proposta</Label>
-                <Input
-                  id="m-value"
-                  name="proposal_value"
-                  type="number"
-                  step="0.01"
-                  defaultValue={lead.proposal_value ?? ''}
-                />
-              </div>
-              <div className="space-y-1.5">
                 <Label htmlFor="m-maturity">Maturidade (0-100)</Label>
                 <Input
                   id="m-maturity"
@@ -308,6 +319,47 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModal
                   max="100"
                   defaultValue={lead.maturity_score ?? ''}
                 />
+              </div>
+              <div className="col-span-2 space-y-2 rounded-lg border border-[var(--color-border)] p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Proposta</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="m-spot">Spot (R$)</Label>
+                    <Input
+                      id="m-spot"
+                      name="spot_value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      defaultValue={lead.spot_value ?? ''}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="m-fee">Fee mensal (R$)</Label>
+                    <Input
+                      id="m-fee"
+                      name="fee_value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      defaultValue={lead.fee_value ?? ''}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="m-fee-months">Período (meses)</Label>
+                    <Input
+                      id="m-fee-months"
+                      name="fee_months"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="Ex: 12"
+                      defaultValue={lead.fee_months ?? ''}
+                    />
+                  </div>
+                </div>
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label htmlFor="m-notes">Notas</Label>
@@ -336,7 +388,7 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModal
                     type="button"
                     variant="default"
                     onClick={() => {
-                      setConvertFee(String(lead.proposal_value || ''))
+                      setConvertFee(String(lead.fee_value || lead.proposal_value || ''))
                       setConvertOpen(true)
                     }}
                     disabled={pending}
@@ -344,6 +396,16 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated }: LeadModal
                     Converter em cliente
                   </Button>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/10 hover:text-[var(--color-destructive)]"
+                  onClick={handleDeleteClick}
+                  disabled={pending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Excluir lead
+                </Button>
               </div>
               <Button type="submit" disabled={pending}>
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

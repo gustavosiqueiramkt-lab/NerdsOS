@@ -19,7 +19,8 @@ interface LeadCardProps {
 
 export function LeadCard({ lead, nextTask, onClick }: LeadCardProps) {
   const overdue = nextTask?.due_date
-    ? new Date(nextTask.due_date) < new Date(new Date().setHours(0, 0, 0, 0))
+    ? new Date(nextTask.due_date.includes('T') ? nextTask.due_date : nextTask.due_date + 'T00:00:00') <
+      new Date(new Date().setHours(0, 0, 0, 0))
     : false
 
   return (
@@ -44,10 +45,19 @@ export function LeadCard({ lead, nextTask, onClick }: LeadCardProps) {
         </Badge>
       </div>
 
-      {lead.proposal_value ? (
-        <p className="mt-2 text-base font-semibold tabular-nums text-[#FF6B35]">
-          {formatBRL(lead.proposal_value)}
-        </p>
+      {lead.spot_value || lead.fee_value ? (
+        <div className="mt-2 space-y-0.5">
+          {lead.spot_value ? (
+            <p className="text-sm font-semibold tabular-nums text-[#FF6B35]">
+              Spot: {formatBRL(lead.spot_value)}
+            </p>
+          ) : null}
+          {lead.fee_value ? (
+            <p className="text-sm font-semibold tabular-nums text-[#FF6B35]">
+              Fee: {formatBRL(lead.fee_value)}{lead.fee_months ? ` × ${lead.fee_months}m` : ''}
+            </p>
+          ) : null}
+        </div>
       ) : (
         <p className="mt-2 text-xs italic text-[var(--color-muted-foreground)]">
           Sem proposta

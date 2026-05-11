@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createCalendarEvent } from '@/lib/google-calendar'
 import type {
   LeadStage,
   LeadSource,
@@ -21,8 +22,15 @@ export async function createLead(formData: FormData) {
   const { supabase, user } = await getAuthUser()
   if (!user) return { error: 'Não autorizado.' }
 
-  const proposalRaw = Number(formData.get('proposal_value'))
+  const spotRaw = Number(formData.get('spot_value'))
+  const feeRaw = Number(formData.get('fee_value'))
+  const feeMonthsRaw = Number(formData.get('fee_months'))
   const maturityRaw = Number(formData.get('maturity_score'))
+
+  const spotValue = formData.get('spot_value') && !Number.isNaN(spotRaw) && spotRaw >= 0 ? spotRaw : null
+  const feeValue = formData.get('fee_value') && !Number.isNaN(feeRaw) && feeRaw >= 0 ? feeRaw : null
+  const feeMonths = formData.get('fee_months') && !Number.isNaN(feeMonthsRaw) && feeMonthsRaw > 0 ? Math.floor(feeMonthsRaw) : null
+  const computedTotal = (spotValue || 0) + (feeValue || 0) * (feeMonths || 0)
 
   const payload = {
     name: String(formData.get('name') || '').trim(),
@@ -32,10 +40,10 @@ export async function createLead(formData: FormData) {
     email: String(formData.get('email') || '').trim() || null,
     stage: String(formData.get('stage') || 'sem_contato') as LeadStage,
     source: String(formData.get('source') || 'manual') as LeadSource,
-    proposal_value:
-      formData.get('proposal_value') && !Number.isNaN(proposalRaw) && proposalRaw >= 0
-        ? proposalRaw
-        : null,
+    spot_value: spotValue,
+    fee_value: feeValue,
+    fee_months: feeMonths,
+    proposal_value: computedTotal > 0 ? computedTotal : null,
     maturity_score:
       formData.get('maturity_score') && !Number.isNaN(maturityRaw)
         ? Math.min(100, Math.max(0, maturityRaw))
@@ -58,8 +66,15 @@ export async function updateLead(id: string, formData: FormData) {
   const { supabase, user } = await getAuthUser()
   if (!user) return { error: 'Não autorizado.' }
 
-  const proposalRaw = Number(formData.get('proposal_value'))
+  const spotRaw = Number(formData.get('spot_value'))
+  const feeRaw = Number(formData.get('fee_value'))
+  const feeMonthsRaw = Number(formData.get('fee_months'))
   const maturityRaw = Number(formData.get('maturity_score'))
+
+  const spotValue = formData.get('spot_value') && !Number.isNaN(spotRaw) && spotRaw >= 0 ? spotRaw : null
+  const feeValue = formData.get('fee_value') && !Number.isNaN(feeRaw) && feeRaw >= 0 ? feeRaw : null
+  const feeMonths = formData.get('fee_months') && !Number.isNaN(feeMonthsRaw) && feeMonthsRaw > 0 ? Math.floor(feeMonthsRaw) : null
+  const computedTotal = (spotValue || 0) + (feeValue || 0) * (feeMonths || 0)
 
   const update: Record<string, unknown> = {
     name: String(formData.get('name') || '').trim(),
@@ -70,10 +85,10 @@ export async function updateLead(id: string, formData: FormData) {
     stage: String(formData.get('stage') || 'sem_contato'),
     source: String(formData.get('source') || 'manual'),
     notes: String(formData.get('notes') || '').trim() || null,
-    proposal_value:
-      formData.get('proposal_value') && !Number.isNaN(proposalRaw) && proposalRaw >= 0
-        ? proposalRaw
-        : null,
+    spot_value: spotValue,
+    fee_value: feeValue,
+    fee_months: feeMonths,
+    proposal_value: computedTotal > 0 ? computedTotal : null,
     maturity_score:
       formData.get('maturity_score') && !Number.isNaN(maturityRaw)
         ? Math.min(100, Math.max(0, maturityRaw))
@@ -161,6 +176,18 @@ export async function addLeadTask(
     type,
   })
   if (error) return { error: error.message }
+
+  if (dueDate) {
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('name, company')
+      .eq('id', leadId)
+      .maybeSingle()
+    const clientName = (lead?.company || lead?.name || '') as string
+    const calendarTitle = clientName ? `${clientName} | ${title.trim()}` : title.trim()
+    await createCalendarEvent(user.id, { title: calendarTitle, start: dueDate }).catch(() => null)
+  }
+
   revalidatePath('/crm')
   return { ok: true }
 }
@@ -191,6 +218,17 @@ export async function deleteLeadTask(taskId: string) {
   return { ok: true }
 }
 
+export async function deleteLead(id: string) {
+  const { supabase, user } = await getAuthUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const { error } = await supabase.from('leads').delete().eq('id', id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/crm')
+  return { ok: true }
+}
+
 export async function convertLeadToClient(leadId: string, monthlyFee: number) {
   const { supabase, user } = await getAuthUser()
   if (!user) return { error: 'Não autorizado.' }
@@ -212,7 +250,7 @@ export async function convertLeadToClient(leadId: string, monthlyFee: number) {
       segment: lead.segment,
       phone: lead.phone,
       email: lead.email,
-      monthly_fee: monthlyFee || lead.proposal_value || null,
+      monthly_fee: monthlyFee || lead.fee_value || lead.proposal_value || null,
       contract_start: new Date().toISOString().slice(0, 10),
       phase: 'onboarding',
       lead_id: lead.id,

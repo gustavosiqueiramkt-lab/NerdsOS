@@ -76,6 +76,19 @@ const TYPE_COLOR: Record<LeadTaskType, string> = {
 
 const GCAL_COLOR = '#4285F4'
 
+const MONTHS = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+// Dates stored from CRM (input[type=date]) arrive as "YYYY-MM-DD" without a
+// time component. Parsing those with `new Date()` gives UTC midnight, which
+// shifts the day backward in negative-offset timezones. Appending T00:00:00
+// (no Z) forces local-timezone midnight instead.
+function parseTaskDate(s: string): Date {
+  return new Date(s.includes('T') ? s : s + 'T00:00:00')
+}
+
 interface AgendaViewProps {
   weekStart: string // yyyy-MM-dd
   weekTasks: TaskWithLead[]
@@ -105,6 +118,7 @@ export function AgendaView({
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [newTaskDefaults, setNewTaskDefaults] = useState<{
     due_at?: string
+    type?: string
   } | null>(null)
 
   // Append T00:00:00 so the date is always parsed as local midnight
@@ -139,6 +153,11 @@ export function AgendaView({
     router.push(`${pathname}?week=${format(next, 'yyyy-MM-dd')}`)
   }
 
+  const goToMonth = (monthIndex: number) => {
+    const firstOfMonth = new Date(start.getFullYear(), monthIndex, 1)
+    router.push(`${pathname}?week=${format(firstOfMonth, 'yyyy-MM-dd')}`)
+  }
+
   const goToday = () => router.push(pathname)
 
   const formatRange = () => {
@@ -154,7 +173,7 @@ export function AgendaView({
     const map = new Map<string, TaskWithLead[]>()
     for (const t of weekTasks) {
       if (!t.due_date) continue
-      const key = format(new Date(t.due_date), 'yyyy-MM-dd')
+      const key = format(parseTaskDate(t.due_date), 'yyyy-MM-dd')
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(t)
     }
@@ -163,13 +182,13 @@ export function AgendaView({
 
   const allDayPerDay = (day: Date) =>
     (tasksByDay.get(format(day, 'yyyy-MM-dd')) || []).filter((t) => {
-      const h = new Date(t.due_date!).getHours()
+      const h = parseTaskDate(t.due_date!).getHours()
       return h < HOUR_START || h > HOUR_END
     })
 
   const timedPerDay = (day: Date) =>
     (tasksByDay.get(format(day, 'yyyy-MM-dd')) || []).filter((t) => {
-      const h = new Date(t.due_date!).getHours()
+      const h = parseTaskDate(t.due_date!).getHours()
       return h >= HOUR_START && h <= HOUR_END
     })
 
@@ -267,6 +286,17 @@ export function AgendaView({
           <Button variant="outline" size="sm" onClick={goToday}>
             Hoje
           </Button>
+          <select
+            value={start.getMonth()}
+            onChange={(e) => goToMonth(Number(e.target.value))}
+            className="h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
+          >
+            {MONTHS.map((m, i) => (
+              <option key={i} value={i}>
+                {m}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-3">
@@ -288,6 +318,15 @@ export function AgendaView({
               </Button>
             </div>
           )}
+          <Button
+            variant="outline"
+            onClick={() => {
+              setNewTaskDefaults({ type: 'meeting' })
+              setNewTaskOpen(true)
+            }}
+          >
+            <Plus className="h-4 w-4" /> Nova reunião
+          </Button>
           <Button
             onClick={() => {
               setNewTaskDefaults(null)
@@ -418,7 +457,7 @@ export function AgendaView({
 
                     {/* NerdsOS tasks */}
                     {timedPerDay(d).map((t) => {
-                      const dt = new Date(t.due_date!)
+                      const dt = parseTaskDate(t.due_date!)
                       const offsetMin =
                         (dt.getHours() - HOUR_START) * 60 + dt.getMinutes()
                       const top = (offsetMin / 60) * HOUR_PX
@@ -565,7 +604,7 @@ export function AgendaView({
                 </Badge>
                 {openTask.due_date ? (
                   <span className="text-xs text-[var(--color-muted-foreground)]">
-                    {format(new Date(openTask.due_date), "d MMM 'às' HH:mm", {
+                    {format(parseTaskDate(openTask.due_date), "d MMM 'às' HH:mm", {
                       locale: ptBR,
                     })}
                   </span>
@@ -626,6 +665,7 @@ export function AgendaView({
         }}
         leads={leads}
         defaultDueAt={newTaskDefaults?.due_at}
+        defaultType={newTaskDefaults?.type}
       />
     </div>
   )
@@ -709,7 +749,7 @@ function ChecklistItem({
         </p>
         <p className="truncate text-[10px] text-[var(--color-muted-foreground)]">
           {task.due_date
-            ? format(new Date(task.due_date), "d MMM · HH:mm", { locale: ptBR })
+            ? format(parseTaskDate(task.due_date), "d MMM · HH:mm", { locale: ptBR })
             : '—'}
           {task.lead?.company ? ` · ${task.lead.company}` : ''}
         </p>

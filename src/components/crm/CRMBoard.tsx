@@ -48,6 +48,7 @@ function group(leads: Lead[]): LeadsByStage {
 
 export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
+  const [nextTasks, setNextTasks] = useState<Record<string, LeadTask>>(nextTaskByLead)
   const [, startTransition] = useTransition()
   const [selected, setSelected] = useState<Lead | null>(null)
   const [addingTo, setAddingTo] = useState<LeadStage | null>(null)
@@ -110,13 +111,28 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
     setSelected(updatedLead)
   }
 
+  const handleLeadDeleted = (leadId: string) => {
+    setLeads((prev) => prev.filter((l) => l.id !== leadId))
+    setSelected(null)
+  }
+
+  const handleNextTaskChanged = (leadId: string, task: LeadTask | undefined) => {
+    setNextTasks((prev) => {
+      const updated = { ...prev }
+      if (task) updated[leadId] = task
+      else delete updated[leadId]
+      return updated
+    })
+  }
+
   return (
     <>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {LEAD_STAGES.map(({ id, label }) => {
           const colLeads = grouped[id]
-          const total = colLeads.reduce(
-            (sum, l) => sum + Number(l.proposal_value || 0),
+          const spotTotal = colLeads.reduce((sum, l) => sum + Number(l.spot_value || 0), 0)
+          const contractTotal = colLeads.reduce(
+            (sum, l) => sum + Number(l.fee_value || 0) * Number(l.fee_months || 0),
             0
           )
           const isOver = dragOverCol === id
@@ -155,7 +171,8 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
                   </p>
                   <p className="text-[10px] text-[var(--color-muted-foreground)]">
                     {colLeads.length} card{colLeads.length === 1 ? '' : 's'}
-                    {total > 0 ? ` · ${formatBRL(total)}` : ''}
+                    {spotTotal > 0 ? ` · Spot ${formatBRL(spotTotal)}` : ''}
+                    {contractTotal > 0 ? ` · Contrato ${formatBRL(contractTotal)}` : ''}
                   </p>
                 </div>
                 <Button
@@ -197,7 +214,7 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
                   >
                     <LeadCard
                       lead={lead}
-                      nextTask={nextTaskByLead[lead.id]}
+                      nextTask={nextTasks[lead.id]}
                       onClick={() => setSelected(lead)}
                     />
                   </div>
@@ -213,6 +230,8 @@ export function CRMBoard({ initialLeads, nextTaskByLead = {} }: CRMBoardProps) {
         open={!!selected}
         onOpenChange={(o) => !o && setSelected(null)}
         onLeadUpdated={handleLeadUpdated}
+        onLeadDeleted={handleLeadDeleted}
+        onNextTaskChanged={handleNextTaskChanged}
       />
 
       <Sheet open={!!addingTo} onOpenChange={(o) => !o && setAddingTo(null)}>

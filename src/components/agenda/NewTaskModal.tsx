@@ -26,6 +26,7 @@ interface NewTaskModalProps {
   onOpenChange: (o: boolean) => void
   leads: Lead[]
   defaultDueAt?: string
+  defaultType?: string
 }
 
 export function NewTaskModal({
@@ -33,18 +34,24 @@ export function NewTaskModal({
   onOpenChange,
   leads,
   defaultDueAt,
+  defaultType,
 }: NewTaskModalProps) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [selectedType, setSelectedType] = useState(defaultType ?? 'task')
+
+  const isMeeting = selectedType === 'meeting'
+  const title = isMeeting ? 'Nova reunião' : 'Nova tarefa'
+  const description = isMeeting
+    ? 'Agende uma reunião com cliente. Um convite será enviado automaticamente.'
+    : 'Crie uma tarefa avulsa ou vincule a um lead.'
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Nova tarefa</SheetTitle>
-          <SheetDescription>
-            Crie uma tarefa avulsa ou vincule a um lead.
-          </SheetDescription>
+          <SheetTitle>{title}</SheetTitle>
+          <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
         <form
           onSubmit={(e) => {
@@ -55,8 +62,9 @@ export function NewTaskModal({
               const res = await createAgendaTask(fd)
               if (res?.error) setError(res.error)
               else {
-                toast.success('Tarefa criada.')
+                toast.success(isMeeting ? 'Reunião agendada.' : 'Tarefa criada.')
                 onOpenChange(false)
+                setSelectedType(defaultType ?? 'task')
                 ;(e.target as HTMLFormElement).reset()
               }
             })
@@ -74,7 +82,8 @@ export function NewTaskModal({
               <select
                 id="t-type"
                 name="type"
-                defaultValue="task"
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
                 className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm"
               >
                 <option value="task">Tarefa / Nota</option>
@@ -85,14 +94,33 @@ export function NewTaskModal({
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="t-due">Data e hora</Label>
+              <Label htmlFor="t-due">Data e hora *</Label>
               <Input
                 id="t-due"
                 name="due_at"
                 type="datetime-local"
                 defaultValue={defaultDueAt}
+                required={isMeeting}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="t-description">
+              {isMeeting ? 'Pauta / Descrição' : 'Descrição'}{' '}
+              <span className="text-[var(--color-muted-foreground)] font-normal">(opcional)</span>
+            </Label>
+            <textarea
+              id="t-description"
+              name="description"
+              rows={3}
+              placeholder={
+                isMeeting
+                  ? 'Ex.: Apresentação de resultados, alinhamento de estratégia…'
+                  : 'Detalhes adicionais…'
+              }
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm placeholder:text-[var(--color-muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 resize-none"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -112,6 +140,12 @@ export function NewTaskModal({
             </select>
           </div>
 
+          {isMeeting && (
+            <p className="rounded-md border border-[#4285F4]/30 bg-[#4285F4]/5 px-3 py-2 text-xs text-[var(--color-muted-foreground)]">
+              📅 O evento será criado no Google Calendar e um convite enviado automaticamente para o participante.
+            </p>
+          )}
+
           {error ? (
             <p className="rounded-md border border-[var(--color-destructive)]/40 bg-[var(--color-destructive)]/10 px-3 py-2 text-xs text-[var(--color-destructive)]">
               {error}
@@ -129,7 +163,7 @@ export function NewTaskModal({
             </Button>
             <Button type="submit" disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Criar tarefa
+              {isMeeting ? 'Agendar reunião' : 'Criar tarefa'}
             </Button>
           </div>
         </form>
