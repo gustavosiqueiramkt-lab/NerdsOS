@@ -35,8 +35,7 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.redirect(`${origin}/agenda?connected=true`)
-  } catch (err) {
-    console.error('[Google OAuth callback]', err)
+  } catch {
     return NextResponse.redirect(`${origin}/agenda?error=oauth_failed`)
   }
 }

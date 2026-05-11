@@ -1,6 +1,8 @@
 // Domain types — mirror the Supabase schema declared in the SQL bootstrap.
 // Kept hand-written (no codegen) so the types stay readable and editable.
 
+import type { ProposalContent } from './proposal'
+
 export type LeadStage =
   | 'sem_contato'
   | 'contato_feito'
@@ -242,12 +244,12 @@ export interface Proposal {
   client_market: string | null
   briefing: string | null
   maturity_score: number | null
-  services: unknown
+  services: string[] | null
   total_spot: number
   total_monthly: number
   status: ProposalStatus
   pdf_url: string | null
-  ai_content: unknown
+  ai_content: ProposalContent | null
   sent_at: string | null
   approved_at: string | null
 }

@@ -194,6 +194,9 @@ export async function generateAndSaveProposal(formData: FormData) {
 
 export async function listProposals() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data } = await supabase
     .from('proposals')
     .select('id, title, client_name, client_segment, client_market, status, total_spot, total_monthly, created_at')
@@ -203,12 +206,20 @@ export async function listProposals() {
 
 export async function getProposal(id: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
   const { data } = await supabase.from('proposals').select('*').eq('id', id).single()
   return data
 }
 
 export async function deleteProposal(id: string) {
   const supabase = await createClient()
-  await supabase.from('proposals').delete().eq('id', id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const { error } = await supabase.from('proposals').delete().eq('id', id)
+  if (error) return { error: error.message }
   revalidatePath('/propostas')
+  return { ok: true }
 }

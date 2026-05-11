@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing timeMin or timeMax' }, { status: 400 })
   }
 
+  if (isNaN(Date.parse(timeMin)) || isNaN(Date.parse(timeMax))) {
+    return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
+  }
+
   const events = await getCalendarEvents(user.id, timeMin, timeMax)
   return NextResponse.json({ events })
 }

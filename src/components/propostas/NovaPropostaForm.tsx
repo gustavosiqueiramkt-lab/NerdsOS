@@ -11,9 +11,16 @@ export function NovaPropostaForm() {
   const [error, setError] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10 MB
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0] ?? null
+    if (selected && selected.size > MAX_FILE_BYTES) {
+      setError('Arquivo muito grande. O limite é 10 MB.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    setError(null)
     setFile(selected)
   }
 
