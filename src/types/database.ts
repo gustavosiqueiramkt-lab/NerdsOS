@@ -17,6 +17,7 @@ export type LeadSource =
   | 'google_forms'
   | 'indicacao'
   | 'site'
+  | 'prospeccao'
 
 export interface Lead {
   id: string
@@ -353,4 +354,81 @@ export const SOURCE_LABEL: Record<LeadSource, string> = {
   google_forms: 'Forms',
   indicacao: 'Indicação',
   site: 'Site',
+  prospeccao: 'Prospecção',
+}
+
+// ─── Prospecção ───────────────────────────────────────────────────────────────
+
+export type ProspeccaoLeadStatus =
+  | 'novo'
+  | 'mensagem_enviada'
+  | 'respondeu'
+  | 'convertido'
+  | 'descartado'
+
+export type ProspeccaoBuscaStatus =
+  | 'pendente'
+  | 'executando'
+  | 'concluida'
+  | 'erro'
+
+export interface ProspeccaoBusca {
+  id: string
+  created_at: string
+  termo_busca: string
+  cidade: string | null
+  status: ProspeccaoBuscaStatus
+  total_encontrados: number
+  apify_run_id: string | null
+  user_id: string
+}
+
+export interface ProspeccaoLead {
+  id: string
+  created_at: string
+  busca_id: string | null
+  nome_empresa: string
+  endereco: string | null
+  cidade: string | null
+  segmento: string | null
+  telefone: string | null
+  website: string | null
+  instagram: string | null
+  google_maps_url: string | null
+  google_rating: number | null
+  google_reviews_count: number | null
+  sem_website: boolean
+  score_oportunidade: number
+  mensagem_enviada: boolean
+  enviada_em: string | null
+  mensagem_texto: string | null
+  whatsapp_status: 'pendente' | 'enviado' | 'entregue' | 'lido' | 'respondeu' | null
+  convertido_para_crm: boolean
+  crm_lead_id: string | null
+  status: ProspeccaoLeadStatus
+}
+
+export interface ProspeccaoConfig {
+  id: string
+  limite_diario: number
+  evolution_instance: string | null
+  evolution_token: string | null
+  mensagem_template: string
+  ativo: boolean
+}
+
+export const PROSPECCAO_STATUS_LABEL: Record<ProspeccaoLeadStatus, string> = {
+  novo: 'Novo',
+  mensagem_enviada: 'Mensagem Enviada',
+  respondeu: 'Respondeu',
+  convertido: 'Convertido',
+  descartado: 'Descartado',
+}
+
+export const PROSPECCAO_STATUS_COLOR: Record<ProspeccaoLeadStatus, string> = {
+  novo: '#6B7280',
+  mensagem_enviada: '#3B82F6',
+  respondeu: '#10B981',
+  convertido: '#8B5CF6',
+  descartado: '#EF4444',
 }

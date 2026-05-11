@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { Loader2, Trash2 } from 'lucide-react'
+import { Loader2, Trash2, Radar } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Sheet,
@@ -237,6 +237,12 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                 Maturidade {lead.maturity_score}
               </Badge>
             ) : null}
+            {lead.source === 'prospeccao' ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E84500]/15 px-2.5 py-0.5 text-xs font-semibold text-[#E84500]">
+                <Radar className="h-3 w-3" />
+                Prospecção Ativa
+              </span>
+            ) : null}
           </div>
         </SheetHeader>
 
@@ -307,6 +313,7 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                   <option value="google_forms">Google Forms</option>
                   <option value="indicacao">Indicação</option>
                   <option value="site">Site</option>
+                  <option value="prospeccao">Prospecção Ativa</option>
                 </select>
               </div>
               <div className="space-y-1.5">

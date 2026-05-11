@@ -12,6 +12,7 @@ import {
   FileText,
   Boxes,
   Truck,
+  Radar,
   LogOut,
   type LucideIcon,
 } from 'lucide-react'
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/financeiro', label: 'Financeiro', icon: Wallet },
   { href: '/propostas', label: 'Propostas', icon: FileText },
+  { href: '/prospeccao', label: 'Prospecção', icon: Radar },
   { href: '/catalogo', label: 'Catálogo', icon: Boxes },
   { href: '/fornecedores', label: 'Fornecedores', icon: Truck },
 ]
