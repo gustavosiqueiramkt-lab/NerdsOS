@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ProposalContent } from '@/types/proposal'
+import type { Contrato, ContratoServico } from '@/types/database'
+import { PLANO_FEE_DEFAULTS } from '@/types/database'
 
 function buildPrompt(
   clientName: string,
@@ -222,4 +224,169 @@ export async function deleteProposal(id: string) {
   if (error) return { error: error.message }
   revalidatePath('/propostas')
   return { ok: true }
+}
+
+// ─── Contratos ────────────────────────────────────────────────────────────────
+
+export async function gerarContratos(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const types = formData.getAll('types') as string[]
+  if (!types.length) return { error: 'Selecione ao menos um tipo de contrato.' }
+
+  const razao_social = String(formData.get('razao_social') || '').trim()
+  const cnpj = String(formData.get('cnpj') || '').trim()
+  const endereco = String(formData.get('endereco') || '').trim()
+  const nome_representante = String(formData.get('nome_representante') || '').trim()
+  const rg_representante = String(formData.get('rg_representante') || '').trim()
+  const cpf_representante = String(formData.get('cpf_representante') || '').trim()
+
+  if (!razao_social || !cnpj || !endereco || !nome_representante || !rg_representante || !cpf_representante) {
+    return { error: 'Preencha todos os dados do contratante.' }
+  }
+
+  const rows: Record<string, unknown>[] = []
+
+  if (types.includes('spot')) {
+    const servicosRaw = String(formData.get('servicos_json') || '[]')
+    let servicos: ContratoServico[] = []
+    try { servicos = JSON.parse(servicosRaw) } catch { /* empty */ }
+    if (!servicos.length) return { error: 'Selecione ao menos um serviço para o contrato Spot.' }
+    const valor_total = servicos.reduce((sum, s) => sum + s.price, 0)
+    const forma_pagamento = String(formData.get('forma_pagamento') || '50_50')
+    rows.push({
+      type: 'spot',
+      razao_social, cnpj, endereco, nome_representante, rg_representante, cpf_representante,
+      servicos_contratados: servicos,
+      valor_total,
+      forma_pagamento,
+    })
+  }
+
+  if (types.includes('fee')) {
+    const plano = String(formData.get('plano') || 'start') as 'start' | 'growth' | 'scale'
+    const defaults = PLANO_FEE_DEFAULTS[plano]
+    const fee_mensal = Number(formData.get('fee_mensal') || defaults.fee)
+    const taxa_ativacao = Number(formData.get('taxa_ativacao') || defaults.ativacao)
+    const plano_conteudo = (String(formData.get('plano_conteudo') || '')) || null
+    const dia_vencimento = Number(formData.get('dia_vencimento') || 5)
+    rows.push({
+      type: 'fee',
+      razao_social, cnpj, endereco, nome_representante, rg_representante, cpf_representante,
+      plano,
+      fee_mensal,
+      taxa_ativacao,
+      plano_conteudo: plano_conteudo as 'pulse' | 'flow' | 'engine' | null,
+      dia_vencimento,
+    })
+  }
+
+  const { data, error } = await supabase.from('contratos').insert(rows).select('id')
+  if (error) return { error: error.message }
+
+  revalidatePath('/propostas')
+  return { ids: (data ?? []).map((r: { id: string }) => r.id) }
+}
+
+export async function listContratos(): Promise<Contrato[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('contratos')
+    .select('*')
+    .neq('status', 'cancelado')
+    .order('created_at', { ascending: false })
+  return (data ?? []) as Contrato[]
+}
+
+export async function assinarContrato(contratoId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const { error } = await supabase
+    .from('contratos')
+    .update({ status: 'assinado', signed_at: new Date().toISOString() })
+    .eq('id', contratoId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/propostas')
+  return { ok: true }
+}
+
+export async function cancelarContrato(contratoId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const { error } = await supabase
+    .from('contratos')
+    .update({ status: 'cancelado' })
+    .eq('id', contratoId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/propostas')
+  return { ok: true }
+}
+
+export async function converterContratoParaCliente(contratoId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autorizado.' }
+
+  const { data: contrato } = await supabase
+    .from('contratos')
+    .select('*')
+    .eq('id', contratoId)
+    .single()
+  if (!contrato) return { error: 'Contrato não encontrado.' }
+  if (contrato.status !== 'assinado') return { error: 'O contrato precisa estar assinado.' }
+  if (contrato.converted_to_client_id) return { error: 'Contrato já convertido.' }
+
+  const { data: client, error: clientErr } = await supabase
+    .from('clients')
+    .insert({
+      name: contrato.nome_representante,
+      company: contrato.razao_social,
+      cnpj: contrato.cnpj,
+      monthly_fee: contrato.fee_mensal ?? null,
+      activation_fee: contrato.taxa_ativacao ?? null,
+      contract_start: new Date().toISOString().slice(0, 10),
+      contract_min_months: contrato.plano ? (PLANO_FEE_DEFAULTS[contrato.plano as 'start' | 'growth' | 'scale']?.meses_min ?? 3) : 3,
+      phase: 'onboarding',
+    })
+    .select()
+    .single()
+  if (clientErr) return { error: clientErr.message }
+
+  // Onboarding checklist
+  const { data: templates } = await supabase.from('onboarding_checklist_template').select('id')
+  if (templates?.length) {
+    await supabase.from('client_onboarding').insert(
+      templates.map((t: { id: string }) => ({
+        client_id: client.id,
+        template_id: t.id,
+        status: 'pendente' as const,
+      }))
+    )
+  }
+  await supabase.from('projects').insert({
+    client_id: client.id,
+    name: `Onboarding — ${client.company}`,
+    board_phase: 'onboarding',
+    started_at: new Date().toISOString().slice(0, 10),
+  })
+
+  await supabase
+    .from('contratos')
+    .update({ converted_to_client_id: client.id })
+    .eq('id', contratoId)
+
+  revalidatePath('/propostas')
+  revalidatePath('/clientes')
+  return { clientId: client.id }
 }

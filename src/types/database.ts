@@ -432,3 +432,63 @@ export const PROSPECCAO_STATUS_COLOR: Record<ProspeccaoLeadStatus, string> = {
   convertido: '#8B5CF6',
   descartado: '#EF4444',
 }
+
+// ─── Contratos ────────────────────────────────────────────────────────────────
+
+export type ContratoType = 'spot' | 'fee'
+export type ContratoStatus = 'gerado' | 'assinado' | 'cancelado'
+
+export interface ContratoServico {
+  id: string
+  name: string
+  price: number
+}
+
+export interface Contrato {
+  id: string
+  created_at: string
+  type: ContratoType
+  status: ContratoStatus
+  signed_at: string | null
+  razao_social: string
+  cnpj: string
+  endereco: string
+  nome_representante: string
+  rg_representante: string
+  cpf_representante: string
+  // Spot
+  servicos_contratados: ContratoServico[] | null
+  valor_total: number | null
+  forma_pagamento: 'integral' | '30_70' | '50_50' | null
+  // Fee
+  plano: 'start' | 'growth' | 'scale' | null
+  fee_mensal: number | null
+  taxa_ativacao: number | null
+  plano_conteudo: 'pulse' | 'flow' | 'engine' | null
+  dia_vencimento: number | null
+  converted_to_client_id: string | null
+}
+
+export const CONTRATO_STATUS_LABEL: Record<ContratoStatus, string> = {
+  gerado: 'Gerado',
+  assinado: 'Assinado',
+  cancelado: 'Cancelado',
+}
+
+export const CONTRATO_STATUS_COLOR: Record<ContratoStatus, string> = {
+  gerado: '#F59E0B',
+  assinado: '#10B981',
+  cancelado: '#6B7280',
+}
+
+export const PLANO_FEE_DEFAULTS: Record<'start' | 'growth' | 'scale', { fee: number; ativacao: number; meses_min: number }> = {
+  start:  { fee: 2800, ativacao: 900,  meses_min: 3 },
+  growth: { fee: 2000, ativacao: 1200, meses_min: 3 },
+  scale:  { fee: 8000, ativacao: 1500, meses_min: 6 },
+}
+
+export const PLANO_CONTEUDO_DEFAULTS: Record<'pulse' | 'flow' | 'engine', number> = {
+  pulse: 1900,
+  flow:  2800,
+  engine: 4500,
+}
