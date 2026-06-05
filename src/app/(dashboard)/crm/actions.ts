@@ -168,18 +168,32 @@ export async function addLeadTask(
   })
   if (error) return { error: error.message }
 
+  let calendarError = false
   if (dueDate) {
-    const { data: lead } = await supabase
-      .from('leads')
-      .select('name, company')
-      .eq('id', leadId)
-      .maybeSingle()
-    const clientName = (lead?.company || lead?.name || '') as string
-    const calendarTitle = clientName ? `${clientName} | ${title.trim()}` : title.trim()
-    await createCalendarEvent(user.id, { title: calendarTitle, start: dueDate }).catch(() => null)
+    try {
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('name, company')
+        .eq('id', leadId)
+        .maybeSingle()
+      const clientName = (lead?.company || lead?.name || '') as string
+      const calendarTitle = clientName ? `${clientName} | ${title.trim()}` : title.trim()
+      await createCalendarEvent(user.id, { title: calendarTitle, start: dueDate })
+    } catch (err) {
+      console.error('Calendar sync error:', err)
+      calendarError = true
+    }
   }
 
   revalidatePath('/crm')
+
+  if (calendarError && dueDate) {
+    return {
+      ok: true,
+      warning: 'Tarefa criada, mas não sincronizou com Google Calendar.'
+    }
+  }
+
   return { ok: true }
 }
 

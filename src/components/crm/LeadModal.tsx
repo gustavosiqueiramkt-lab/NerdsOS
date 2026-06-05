@@ -201,9 +201,14 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
     const type = String(fd.get('task_type') || 'outro') as LeadTaskType
     startTransition(async () => {
       const res = await addLeadTask(lead.id, title, due, type)
-      if (res?.error) toast.error(res.error)
-      else {
-        toast.success('Tarefa adicionada')
+      if (res?.error) {
+        toast.error(res.error)
+      } else {
+        if (res.warning) {
+          toast.warning(res.warning)
+        } else {
+          toast.success('Tarefa adicionada')
+        }
         form.reset()
         await reloadTasks()
       }
