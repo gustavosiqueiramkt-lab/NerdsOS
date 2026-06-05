@@ -78,6 +78,28 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
   const [convertOpen, setConvertOpen] = useState(false)
   const [convertFee, setConvertFee] = useState('')
 
+  if (!lead) return null
+
+  // Controlled form fields
+  const [formData, setFormData] = useState({
+    name: lead.name,
+    company: lead.company || '',
+    phone: lead.phone || '',
+    email: lead.email || '',
+    segment: lead.segment || '',
+    stage: lead.stage,
+    source: lead.source,
+    maturity_score: lead.maturity_score ?? '',
+    spot_value: lead.spot_value ?? '',
+    fee_value: lead.fee_value ?? '',
+    fee_months: lead.fee_months ?? '',
+    notes: lead.notes || '',
+  })
+
+  const handleFieldChange = (field: string, value: string | number) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
   useEffect(() => {
     if (!lead || !open) return
     const supabase = createClient()
@@ -97,8 +119,6 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
       setTasks((t.data as LeadTask[]) || [])
     })
   }, [lead, open])
-
-  if (!lead) return null
 
   const reloadTasks = async () => {
     const supabase = createClient()
@@ -128,7 +148,10 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+    const fd = new FormData()
+    Object.entries(formData).forEach(([key, value]) => {
+      fd.append(key, String(value))
+    })
     startTransition(async () => {
       const res = await updateLead(lead.id, fd)
       if (res?.error) {
@@ -259,46 +282,51 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="m-name">Nome</Label>
-                <Input id="m-name" name="name" defaultValue={lead.name} />
+                <Input
+                  id="m-name"
+                  value={formData.name}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="m-company">Empresa</Label>
                 <Input
                   id="m-company"
-                  name="company"
-                  defaultValue={lead.company || ''}
+                  value={formData.company}
+                  onChange={(e) => handleFieldChange('company', e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="m-phone">Telefone</Label>
                 <Input
                   id="m-phone"
-                  name="phone"
-                  defaultValue={lead.phone || ''}
+                  value={formData.phone}
+                  onChange={(e) => handleFieldChange('phone', e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="m-email">E-mail</Label>
                 <Input
                   id="m-email"
-                  name="email"
-                  defaultValue={lead.email || ''}
+                  value={formData.email}
+                  onChange={(e) => handleFieldChange('email', e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="m-segment">Segmento</Label>
                 <Input
                   id="m-segment"
-                  name="segment"
-                  defaultValue={lead.segment || ''}
+                  value={formData.segment}
+                  onChange={(e) => handleFieldChange('segment', e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="m-stage">Estágio</Label>
                 <select
                   id="m-stage"
-                  name="stage"
-                  defaultValue={lead.stage}
+                  value={formData.stage}
+                  onChange={(e) => handleFieldChange('stage', e.target.value)}
                   className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm"
                 >
                   {LEAD_STAGES.map((s) => (
@@ -312,8 +340,8 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                 <Label htmlFor="m-source">Origem</Label>
                 <select
                   id="m-source"
-                  name="source"
-                  defaultValue={lead.source}
+                  value={formData.source}
+                  onChange={(e) => handleFieldChange('source', e.target.value)}
                   className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm"
                 >
                   <option value="manual">Manual</option>
@@ -328,11 +356,11 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                 <Label htmlFor="m-maturity">Maturidade (0-100)</Label>
                 <Input
                   id="m-maturity"
-                  name="maturity_score"
+                  value={formData.maturity_score}
                   type="number"
                   min="0"
                   max="100"
-                  defaultValue={lead.maturity_score ?? ''}
+                  onChange={(e) => handleFieldChange('maturity_score', e.target.value)}
                 />
               </div>
               <div className="col-span-2 space-y-2 rounded-lg border border-[var(--color-border)] p-3">
@@ -342,36 +370,36 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                     <Label htmlFor="m-spot">Spot (R$)</Label>
                     <Input
                       id="m-spot"
-                      name="spot_value"
+                      value={formData.spot_value}
                       type="number"
                       step="0.01"
                       min="0"
                       placeholder="0,00"
-                      defaultValue={lead.spot_value ?? ''}
+                      onChange={(e) => handleFieldChange('spot_value', e.target.value)}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="m-fee">Fee mensal (R$)</Label>
                     <Input
                       id="m-fee"
-                      name="fee_value"
+                      value={formData.fee_value}
                       type="number"
                       step="0.01"
                       min="0"
                       placeholder="0,00"
-                      defaultValue={lead.fee_value ?? ''}
+                      onChange={(e) => handleFieldChange('fee_value', e.target.value)}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="m-fee-months">Período (meses)</Label>
                     <Input
                       id="m-fee-months"
-                      name="fee_months"
+                      value={formData.fee_months}
                       type="number"
                       min="1"
                       step="1"
                       placeholder="Ex: 12"
-                      defaultValue={lead.fee_months ?? ''}
+                      onChange={(e) => handleFieldChange('fee_months', e.target.value)}
                     />
                   </div>
                 </div>
@@ -380,9 +408,9 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                 <Label htmlFor="m-notes">Notas</Label>
                 <textarea
                   id="m-notes"
-                  name="notes"
+                  value={formData.notes}
                   rows={3}
-                  defaultValue={lead.notes || ''}
+                  onChange={(e) => handleFieldChange('notes', e.target.value)}
                   className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm"
                 />
               </div>
