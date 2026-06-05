@@ -10,6 +10,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -611,54 +619,53 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
       </SheetContent>
     </Sheet>
 
-    {/* Modal inline de confirmação de conversão */}
-    {convertOpen ? (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-        <div className="w-full max-w-sm rounded-xl border border-[#2A2A45] bg-[#13131F] p-6 shadow-2xl">
-          <h3 className="text-base font-semibold text-[var(--color-foreground)]">
-            Converter em cliente
-          </h3>
-          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+    <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
+      <DialogContent className="w-full max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Converter em cliente</DialogTitle>
+          <DialogDescription>
             Informe o ticket mensal para criar o contrato.
-          </p>
-          <div className="mt-4 space-y-1.5">
-            <Label htmlFor="convert-fee">Ticket mensal (R$)</Label>
-            <Input
-              id="convert-fee"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Ex: 2500"
-              value={convertFee}
-              onChange={(e) => setConvertFee(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleConvertConfirm()
-                if (e.key === 'Escape') setConvertOpen(false)
-              }}
-            />
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setConvertOpen(false)}
-              disabled={pending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleConvertConfirm}
-              disabled={pending}
-            >
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Confirmar
-            </Button>
-          </div>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-4 space-y-1.5">
+          <Label htmlFor="convert-fee">Ticket mensal (R$)</Label>
+          <Input
+            id="convert-fee"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Ex: 2500"
+            value={convertFee}
+            onChange={(e) => setConvertFee(e.target.value)}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleConvertConfirm()
+              if (e.key === 'Escape') setConvertOpen(false)
+            }}
+          />
         </div>
-      </div>
-    ) : null}
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConvertOpen(false)}
+            disabled={pending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleConvertConfirm}
+            disabled={pending}
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   )
 }
