@@ -106,22 +106,6 @@ export function AddLeadForm({ defaultStage, onDone }: AddLeadFormProps) {
         </div>
       </div>
 
-      <Field id="add-action" label="Próxima ação">
-        <Input
-          id="add-action"
-          name="next_action"
-          placeholder="Ex.: Ligar para confirmar reunião"
-        />
-      </Field>
-
-      <Field id="add-action-at" label="Data e hora da próxima ação">
-        <Input
-          id="add-action-at"
-          name="next_action_at"
-          type="datetime-local"
-        />
-      </Field>
-
       <Field id="add-notes" label="Notas">
         <textarea
           id="add-notes"

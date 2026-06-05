@@ -36,8 +36,6 @@ export interface Lead {
   proposal_sent_at: string | null
   maturity_score: number | null
   source: LeadSource
-  next_action: string | null
-  next_action_at: string | null
   notes: string | null
   position: number
   converted_to_client_id: string | null

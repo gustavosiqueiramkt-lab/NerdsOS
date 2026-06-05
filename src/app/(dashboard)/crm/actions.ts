@@ -48,8 +48,6 @@ export async function createLead(formData: FormData) {
       formData.get('maturity_score') && !Number.isNaN(maturityRaw)
         ? Math.min(100, Math.max(0, maturityRaw))
         : null,
-    next_action: String(formData.get('next_action') || '').trim() || null,
-    next_action_at: String(formData.get('next_action_at') || '') || null,
     notes: String(formData.get('notes') || '').trim() || null,
   }
 
@@ -93,13 +91,6 @@ export async function updateLead(id: string, formData: FormData) {
       formData.get('maturity_score') && !Number.isNaN(maturityRaw)
         ? Math.min(100, Math.max(0, maturityRaw))
         : null,
-  }
-
-  if (formData.has('next_action')) {
-    update.next_action = String(formData.get('next_action') || '').trim() || null
-  }
-  if (formData.has('next_action_at')) {
-    update.next_action_at = String(formData.get('next_action_at') || '') || null
   }
 
   const { data: lead, error } = await supabase
@@ -252,7 +243,9 @@ export async function convertLeadToClient(leadId: string, monthlyFee: number) {
       email: lead.email,
       monthly_fee: monthlyFee || lead.fee_value || lead.proposal_value || null,
       contract_start: new Date().toISOString().slice(0, 10),
+      contract_min_months: lead.fee_months || 3,
       phase: 'onboarding',
+      upsell_opportunity: false,
       lead_id: lead.id,
     })
     .select()

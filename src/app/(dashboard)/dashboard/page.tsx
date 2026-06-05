@@ -38,7 +38,7 @@ export default async function DashboardPage() {
         .select('id,name,company,phase,monthly_fee,contract_start,notes'),
       supabase
         .from('leads')
-        .select('id,proposal_value,stage,name,company,next_action,next_action_at'),
+        .select('id,proposal_value,stage,name,company'),
       supabase
         .from('lead_tasks')
         .select('id,title,due_date,completed,lead_id')
