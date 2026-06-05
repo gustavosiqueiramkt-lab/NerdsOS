@@ -18,6 +18,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -439,16 +449,6 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                     Converter em cliente
                   </Button>
                 ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="text-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/10 hover:text-[var(--color-destructive)]"
-                  onClick={handleDeleteClick}
-                  disabled={pending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Excluir lead
-                </Button>
               </div>
               <Button type="submit" disabled={pending}>
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -642,6 +642,45 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
                 )}
               </ul>
             </div>
+          </section>
+
+          <section className="mt-8 border-t border-[var(--color-border)] pt-6">
+            <h3 className="text-sm font-semibold text-[var(--color-destructive)] mb-2">
+              Zona de Perigo
+            </h3>
+            <p className="text-xs text-[var(--color-muted-foreground)] mb-4">
+              Ações irreversíveis. Use com cuidado.
+            </p>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full"
+                  disabled={pending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Lead Permanentemente
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir lead permanentemente?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação é irreversível. O lead "{lead.name}" e todas as suas atividades,
+                    tarefas e histórico serão permanentemente removidos do sistema.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteClick}
+                  className="bg-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/90"
+                >
+                  Excluir Permanentemente
+                </AlertDialogAction>
+              </AlertDialogContent>
+            </AlertDialog>
           </section>
         </div>
       </SheetContent>
