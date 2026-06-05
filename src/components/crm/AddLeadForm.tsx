@@ -69,6 +69,7 @@ export function AddLeadForm({ defaultStage, onDone }: AddLeadFormProps) {
             <option value="google_forms">Google Forms</option>
             <option value="indicacao">Indicação</option>
             <option value="site">Site</option>
+            <option value="prospeccao">Prospecção Ativa</option>
           </select>
         </Field>
         <Field id="add-maturity" label={`Maturidade — ${maturity}/100`}>
