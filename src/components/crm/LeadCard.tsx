@@ -67,7 +67,7 @@ export function LeadCard({ lead, nextTask, onClick }: LeadCardProps) {
       {nextTask ? (
         <div className="mt-2 rounded-md border border-[#2A2A45] bg-[#13131F] px-2 py-1.5">
           <div className="flex items-center justify-between gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
-            <span className="text-[var(--color-muted-foreground)]">Próxima ação</span>
+            <span className="text-[var(--color-muted-foreground)]">Próximo Passo</span>
             <span
               className="rounded px-1.5 py-0.5"
               style={{
@@ -95,7 +95,11 @@ export function LeadCard({ lead, nextTask, onClick }: LeadCardProps) {
             ) : null}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <p className="mt-2 text-[9px] text-[var(--color-muted-foreground)]">
+          Sem próximos passos agendados
+        </p>
+      )}
     </button>
   )
 }
