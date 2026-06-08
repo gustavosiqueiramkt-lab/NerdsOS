@@ -82,13 +82,13 @@ const ACTIVITY_TYPES: LeadActivityType[] = [
 ]
 
 export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDeleted, onNextTaskChanged }: LeadModalProps) {
+  if (!lead) return null
+
   const [activities, setActivities] = useState<LeadActivity[]>([])
   const [tasks, setTasks] = useState<LeadTask[]>([])
   const [pending, startTransition] = useTransition()
   const [convertOpen, setConvertOpen] = useState(false)
   const [convertFee, setConvertFee] = useState('')
-
-  if (!lead) return null
 
   // Controlled form fields
   const [formData, setFormData] = useState({
