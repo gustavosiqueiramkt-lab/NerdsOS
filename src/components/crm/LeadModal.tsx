@@ -89,6 +89,7 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
   const [pending, startTransition] = useTransition()
   const [convertOpen, setConvertOpen] = useState(false)
   const [convertFee, setConvertFee] = useState('')
+  const [isSpot, setIsSpot] = useState(false)
 
   // Controlled form fields
   const [formData, setFormData] = useState({
@@ -248,7 +249,12 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
   }
 
   const handleConvertConfirm = () => {
-    const fee = Number(convertFee.replace(',', '.'))
+    let fee: number
+    if (isSpot) {
+      fee = lead.spot_value || 0
+    } else {
+      fee = Number(convertFee.replace(',', '.'))
+    }
     if (!fee || Number.isNaN(fee) || fee <= 0) {
       toast.error('Informe um valor válido.')
       return
@@ -696,33 +702,58 @@ export function LeadModal({ lead, open, onOpenChange, onLeadUpdated, onLeadDelet
         <DialogHeader>
           <DialogTitle>Converter em cliente</DialogTitle>
           <DialogDescription>
-            Informe o ticket mensal para criar o contrato.
+            {isSpot ? 'Usando valor do spot.' : 'Informe o ticket mensal para criar o contrato.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-4 space-y-1.5">
-          <Label htmlFor="convert-fee">Ticket mensal (R$)</Label>
-          <Input
-            id="convert-fee"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Ex: 2500"
-            value={convertFee}
-            onChange={(e) => setConvertFee(e.target.value)}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleConvertConfirm()
-              if (e.key === 'Escape') setConvertOpen(false)
-            }}
-          />
+        <div className="mt-4 space-y-3">
+          {lead.spot_value ? (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isSpot}
+                onChange={(e) => setIsSpot(e.target.checked)}
+                className="rounded border-[var(--color-border)]"
+              />
+              <span className="text-sm">Usar valor do spot (R$ {lead.spot_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</span>
+            </label>
+          ) : null}
+
+          {!isSpot ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="convert-fee">Ticket mensal (R$)</Label>
+              <Input
+                id="convert-fee"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ex: 2500"
+                value={convertFee}
+                onChange={(e) => setConvertFee(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleConvertConfirm()
+                  if (e.key === 'Escape') setConvertOpen(false)
+                }}
+              />
+            </div>
+          ) : (
+            <div className="rounded-md bg-[var(--color-card)] border border-[var(--color-border)] p-3">
+              <p className="text-sm text-[var(--color-muted-foreground)] mb-1">Valor do contrato (Spot)</p>
+              <p className="text-lg font-semibold">R$ {lead.spot_value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button
             type="button"
             variant="outline"
-            onClick={() => setConvertOpen(false)}
+            onClick={() => {
+              setConvertOpen(false)
+              setIsSpot(false)
+              setConvertFee('')
+            }}
             disabled={pending}
           >
             Cancelar
